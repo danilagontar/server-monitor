@@ -236,7 +236,7 @@ def process_keyboard():
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_menu",
+                callback_data="system_processes",
             ),
         ],
     ])

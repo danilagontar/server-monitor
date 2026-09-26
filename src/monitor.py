@@ -27,10 +27,6 @@ def get_uptime():
     return f"{days}d {hours}h {minutes}m"
 
 
-def get_cpu_usage():
-    return psutil.cpu_percent(interval=1)
-
-
 def get_memory_usage():
     memory = psutil.virtual_memory()
 
@@ -49,6 +45,10 @@ def get_disk_usage():
         "total": disk.total,
         "percent": disk.percent,
     }
+
+
+def get_cpu_usage():
+    return psutil.cpu_percent(interval=1)
 
 
 def get_server_status():
@@ -172,13 +172,20 @@ def get_service_uptime(started_at):
         return None
 
     try:
+        parts = started_at.split()
+
+        if len(parts) < 3:
+            return None
+
+        date_part = parts[1]
+        time_part = parts[2]
+
         started = datetime.strptime(
-            started_at,
-            "%a %Y-%m-%d %H:%M:%S %Z",
+            f"{date_part} {time_part}",
+            "%Y-%m-%d %H:%M:%S",
         )
 
         uptime = datetime.now() - started
-
         total_seconds = int(uptime.total_seconds())
 
         if total_seconds < 0:
@@ -196,7 +203,7 @@ def get_service_uptime(started_at):
 
         return f"Up {minutes}m"
 
-    except ValueError:
+    except (ValueError, IndexError):
         return None
 
 
@@ -322,15 +329,30 @@ def check_telegram_proxy():
 def get_processes(limit=10):
     processes = []
 
+    process_objects = []
+
     for process in psutil.process_iter(
         [
             "pid",
             "name",
             "cmdline",
-            "cpu_percent",
             "memory_percent",
         ],
     ):
+        try:
+            process.cpu_percent(None)
+            process_objects.append(process)
+
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            psutil.ZombieProcess,
+        ):
+            continue
+
+    time.sleep(1)
+
+    for process in process_objects:
         try:
             info = process.info
 
@@ -338,7 +360,7 @@ def get_processes(limit=10):
                 "pid": info["pid"],
                 "name": info["name"] or "unknown",
                 "cmdline": " ".join(info["cmdline"] or []),
-                "cpu": info["cpu_percent"] or 0,
+                "cpu": process.cpu_percent(None),
                 "memory": info["memory_percent"] or 0,
             })
 
