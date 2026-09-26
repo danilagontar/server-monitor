@@ -1,3 +1,4 @@
 python-telegram-bot[socks]
 psutil
 python-dotenv
+requests[socks]
