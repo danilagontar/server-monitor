@@ -23,7 +23,12 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from config import BOT_TOKEN, PROXY_URL
+from config import (
+    BOT_TOKEN,
+    CHAT_ID,
+    PROXY_URL,
+)
+
 from monitor import (
     check_internet,
     check_telegram_proxy,
