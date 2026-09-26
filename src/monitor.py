@@ -47,17 +47,91 @@ def get_disk_usage():
     }
 
 
-def get_cpu_usage():
-    return psutil.cpu_percent(interval=1)
+def get_processes(limit=10):
+    processes = []
+    process_objects = []
+
+    for process in psutil.process_iter(
+        [
+            "pid",
+            "name",
+            "cmdline",
+            "memory_percent",
+        ],
+    ):
+        try:
+            process.cpu_percent(None)
+            process_objects.append(process)
+
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            psutil.ZombieProcess,
+        ):
+            continue
+
+    time.sleep(1)
+
+    for process in process_objects:
+        try:
+            info = process.info
+            cpu = process.cpu_percent(None)
+
+            processes.append({
+                "pid": info["pid"],
+                "name": info["name"] or "unknown",
+                "cmdline": " ".join(info["cmdline"] or []),
+                "cpu": cpu,
+                "memory": info["memory_percent"] or 0,
+            })
+
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            psutil.ZombieProcess,
+        ):
+            continue
+
+    cpu_processes = sorted(
+        processes,
+        key=lambda process: process["cpu"],
+        reverse=True,
+    )
+
+    ram_processes = sorted(
+        processes,
+        key=lambda process: process["memory"],
+        reverse=True,
+    )
+
+    total_cpu = sum(
+        process["cpu"]
+        for process in processes
+    )
+
+    cpu_count = psutil.cpu_count() or 1
+
+    total_cpu_percent = min(
+        total_cpu / cpu_count,
+        100,
+    )
+
+    return {
+        "all": processes,
+        "cpu": cpu_processes[:limit],
+        "memory": ram_processes[:limit],
+        "total_cpu": total_cpu_percent,
+    }
 
 
 def get_server_status():
     memory = get_memory_usage()
     disk = get_disk_usage()
+    processes = get_processes()
 
     return {
         "hostname": platform.node(),
-        "cpu": get_cpu_usage(),
+        "cpu": processes["total_cpu"],
         "memory": memory,
         "disk": disk,
         "uptime": get_uptime(),
@@ -146,12 +220,9 @@ def get_service_status(service):
                 "started_at": None,
             }
 
-        status = lines[0]
-        started_at = lines[1]
-
         return {
-            "status": status,
-            "started_at": started_at,
+            "status": lines[0],
+            "started_at": lines[1],
         }
 
     except subprocess.TimeoutExpired:
@@ -177,16 +248,15 @@ def get_service_uptime(started_at):
         if len(parts) < 3:
             return None
 
-        date_part = parts[1]
-        time_part = parts[2]
-
         started = datetime.strptime(
-            f"{date_part} {time_part}",
+            f"{parts[1]} {parts[2]}",
             "%Y-%m-%d %H:%M:%S",
         )
 
         uptime = datetime.now() - started
-        total_seconds = int(uptime.total_seconds())
+        total_seconds = int(
+            uptime.total_seconds()
+        )
 
         if total_seconds < 0:
             return None
@@ -232,7 +302,9 @@ def check_internet(host="1.1.1.1", port=443, timeout=3):
             (host, port),
             timeout=timeout,
         ):
-            latency = (time.perf_counter() - start) * 1000
+            latency = (
+                time.perf_counter() - start
+            ) * 1000
 
         return {
             "available": True,
@@ -280,7 +352,9 @@ def check_telegram_proxy():
             timeout=10,
         )
 
-        latency = (time.perf_counter() - start) * 1000
+        latency = (
+            time.perf_counter() - start
+        ) * 1000
 
         if response.status_code != 200:
             return {
@@ -326,70 +400,6 @@ def check_telegram_proxy():
         }
 
 
-def get_processes(limit=10):
-    processes = []
-
-    process_objects = []
-
-    for process in psutil.process_iter(
-        [
-            "pid",
-            "name",
-            "cmdline",
-            "memory_percent",
-        ],
-    ):
-        try:
-            process.cpu_percent(None)
-            process_objects.append(process)
-
-        except (
-            psutil.NoSuchProcess,
-            psutil.AccessDenied,
-            psutil.ZombieProcess,
-        ):
-            continue
-
-    time.sleep(1)
-
-    for process in process_objects:
-        try:
-            info = process.info
-
-            processes.append({
-                "pid": info["pid"],
-                "name": info["name"] or "unknown",
-                "cmdline": " ".join(info["cmdline"] or []),
-                "cpu": process.cpu_percent(None),
-                "memory": info["memory_percent"] or 0,
-            })
-
-        except (
-            psutil.NoSuchProcess,
-            psutil.AccessDenied,
-            psutil.ZombieProcess,
-        ):
-            continue
-
-    cpu_processes = sorted(
-        processes,
-        key=lambda process: process["cpu"],
-        reverse=True,
-    )
-
-    ram_processes = sorted(
-        processes,
-        key=lambda process: process["memory"],
-        reverse=True,
-    )
-
-    return {
-        "all": processes,
-        "cpu": cpu_processes[:limit],
-        "memory": ram_processes[:limit],
-    }
-
-
 def get_monitored_processes():
     processes = get_processes()["all"]
 
@@ -411,7 +421,10 @@ def get_monitored_processes():
             f"{process['cmdline']}"
         ).lower()
 
-        if any(keyword in text for keyword in keywords):
+        if any(
+            keyword in text
+            for keyword in keywords
+        ):
             found.append(process)
 
     return found

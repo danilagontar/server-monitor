@@ -215,6 +215,17 @@ def system_keyboard():
     ])
 
 
+def status_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔄 Обновить",
+                callback_data="status_refresh",
+            ),
+        ],
+    ])
+
+
 def process_keyboard():
     return InlineKeyboardMarkup([
         [
@@ -236,7 +247,7 @@ def process_keyboard():
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_processes",
+                callback_data="system_menu",
             ),
         ],
     ])
@@ -365,6 +376,42 @@ def back_keyboard():
             ),
         ],
     ])
+
+
+def build_status_message():
+    server = get_server_status()
+
+    memory = server["memory"]
+    disk = server["disk"]
+
+    cpu = server["cpu"]
+    ram = memory["percent"]
+    disk_percent = disk["percent"]
+
+    return (
+        "🖥 СЕРВЕР\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"🟢 {server['hostname']}\n\n"
+
+        "⚡ CPU\n"
+        f"{progress_bar(cpu)} {cpu:.1f}%\n\n"
+
+        "🧠 RAM\n"
+        f"{progress_bar(ram)} {ram:.1f}%\n"
+        f"{format_bytes(memory['used'])} / "
+        f"{format_bytes(memory['total'])}\n\n"
+
+        "💾 DISK\n"
+        f"{progress_bar(disk_percent)} "
+        f"{disk_percent:.1f}%\n"
+        f"{format_bytes(disk['used'])} / "
+        f"{format_bytes(disk['total'])}\n\n"
+
+        "⏱ Uptime\n"
+        f"{server['uptime']}\n\n"
+
+        f"🕐 Обновлено: {current_time()}"
+    )
 
 
 def build_docker_message():
@@ -615,39 +662,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    server = get_server_status()
-
-    memory = server["memory"]
-    disk = server["disk"]
-
-    cpu = server["cpu"]
-    ram = memory["percent"]
-    disk_percent = disk["percent"]
-
-    message = (
-        "🖥 СЕРВЕР\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        f"🟢 {server['hostname']}\n\n"
-
-        "⚡ CPU\n"
-        f"{progress_bar(cpu)} {cpu:.1f}%\n\n"
-
-        "🧠 RAM\n"
-        f"{progress_bar(ram)} {ram:.1f}%\n"
-        f"{format_bytes(memory['used'])} / "
-        f"{format_bytes(memory['total'])}\n\n"
-
-        "💾 DISK\n"
-        f"{progress_bar(disk_percent)} "
-        f"{disk_percent:.1f}%\n"
-        f"{format_bytes(disk['used'])} / "
-        f"{format_bytes(disk['total'])}\n\n"
-
-        "⏱ Uptime\n"
-        f"{server['uptime']}"
+    await update.message.reply_text(
+        build_status_message(),
+        reply_markup=status_keyboard(),
     )
-
-    await update.message.reply_text(message)
 
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -691,6 +709,13 @@ async def system_callback(
     await query.answer()
 
     action = query.data
+
+    if action == "status_refresh":
+        await query.edit_message_text(
+            build_status_message(),
+            reply_markup=status_keyboard(),
+        )
+        return
 
     if action == "system_menu":
         await query.edit_message_text(
@@ -790,7 +815,7 @@ def main():
     application.add_handler(
         CallbackQueryHandler(
             system_callback,
-            pattern=r"^(system_|processes_)",
+            pattern=r"^(system_|processes_|status_)",
         )
     )
 
