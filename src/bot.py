@@ -2,7 +2,14 @@ import csv
 import os
 import threading
 from datetime import datetime, timedelta
+import asyncio
 
+from services import (
+    ServiceMonitor,
+    format_event,
+    load_settings,
+    save_settings,
+)
 from telegram import (
     BotCommand,
     InlineKeyboardButton,
@@ -32,6 +39,7 @@ from collector import collect_loop
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSV_FILE = os.path.join(BASE_DIR, "data", "metrics.csv")
 
+service_monitor = ServiceMonitor()
 
 def current_time():
     return datetime.now().strftime("%d.%m %H:%M:%S")
@@ -770,6 +778,34 @@ async def system_callback(
         reply_markup=keyboard,
     )
 
+async def service_monitor_loop(application):
+    service_monitor.initialize()
+
+    while True:
+        try:
+            events = service_monitor.check_all()
+
+            for event in events:
+                message = format_event(event)
+
+                if message:
+                    await application.bot.send_message(
+                        chat_id=CHAT_ID,
+                        text=message,
+                    )
+
+        except Exception as error:
+            print(f"Service monitor error: {error}")
+
+        settings = load_settings()
+        interval = settings["monitor"]["interval"]
+
+        await asyncio.sleep(interval)
+
+async def post_init(application):
+    asyncio.create_task(
+        service_monitor_loop(application)
+    )
 
 def main():
     collector_thread = threading.Thread(
@@ -817,6 +853,13 @@ def main():
             system_callback,
             pattern=r"^(system_|processes_|status_)",
         )
+    )
+
+    application.job_queue.run_once(
+        lambda context: asyncio.create_task(
+            service_monitor_loop(application)
+        ),
+        when=1,
     )
 
     application.run_polling()
