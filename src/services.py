@@ -34,6 +34,7 @@ SERVICES = [
     "tickets-bot.service",
     "emias.service",
     "xray.service",
+    "server-monitor.service",
 ]
 
 
