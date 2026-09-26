@@ -2,6 +2,7 @@ import platform
 import socket
 import subprocess
 import time
+from datetime import datetime
 
 import psutil
 import requests
@@ -123,29 +124,94 @@ def get_docker_status():
 def get_service_status(service):
     try:
         result = subprocess.run(
-            ["systemctl", "is-active", service],
+            [
+                "systemctl",
+                "show",
+                service,
+                "--property=ActiveState",
+                "--property=ActiveEnterTimestamp",
+                "--value",
+            ],
             capture_output=True,
             text=True,
             timeout=5,
             check=False,
         )
 
-        return result.stdout.strip()
+        lines = result.stdout.strip().splitlines()
+
+        if len(lines) < 2:
+            return {
+                "status": "unknown",
+                "started_at": None,
+            }
+
+        status = lines[0]
+        started_at = lines[1]
+
+        return {
+            "status": status,
+            "started_at": started_at,
+        }
 
     except subprocess.TimeoutExpired:
-        return "timeout"
+        return {
+            "status": "timeout",
+            "started_at": None,
+        }
 
     except Exception:
-        return "unknown"
+        return {
+            "status": "unknown",
+            "started_at": None,
+        }
+
+
+def get_service_uptime(started_at):
+    if not started_at:
+        return None
+
+    try:
+        started = datetime.strptime(
+            started_at,
+            "%a %Y-%m-%d %H:%M:%S %Z",
+        )
+
+        uptime = datetime.now() - started
+
+        total_seconds = int(uptime.total_seconds())
+
+        if total_seconds < 0:
+            return None
+
+        days = total_seconds // 86400
+        hours = (total_seconds % 86400) // 3600
+        minutes = (total_seconds % 3600) // 60
+
+        if days > 0:
+            return f"Up {days}d {hours}h"
+
+        if hours > 0:
+            return f"Up {hours}h {minutes}m"
+
+        return f"Up {minutes}m"
+
+    except ValueError:
+        return None
 
 
 def get_services_status():
     services = []
 
     for service in SERVICES:
+        data = get_service_status(service)
+
         services.append({
             "name": service,
-            "status": get_service_status(service),
+            "status": data["status"],
+            "uptime": get_service_uptime(
+                data["started_at"]
+            ),
         })
 
     return services
@@ -189,7 +255,7 @@ def check_telegram_proxy():
         }
 
     url = (
-        f"https://api.telegram.org/"
+        "https://api.telegram.org/"
         f"bot{BOT_TOKEN}/getMe"
     )
 
@@ -268,13 +334,10 @@ def get_processes(limit=10):
         try:
             info = process.info
 
-            name = info["name"] or "unknown"
-            cmdline = " ".join(info["cmdline"] or [])
-
             processes.append({
                 "pid": info["pid"],
-                "name": name,
-                "cmdline": cmdline,
+                "name": info["name"] or "unknown",
+                "cmdline": " ".join(info["cmdline"] or []),
                 "cpu": info["cpu_percent"] or 0,
                 "memory": info["memory_percent"] or 0,
             })

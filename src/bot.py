@@ -33,6 +33,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSV_FILE = os.path.join(BASE_DIR, "data", "metrics.csv")
 
 
+def current_time():
+    return datetime.now().strftime("%d.%m %H:%M:%S")
+
+
 def format_bytes(value):
     return f"{value / 1024**3:.1f} GB"
 
@@ -107,7 +111,8 @@ def build_stats_message(hours):
         return (
             "📊 СТАТИСТИКА СЕРВЕРА\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            f"За последние {format_period(hours)} данных пока нет."
+            f"За последние {format_period(hours)} "
+            "данных пока нет."
         )
 
     stats = calculate_stats(metrics)
@@ -129,6 +134,8 @@ def build_stats_message(hours):
     return (
         "📊 СТАТИСТИКА СЕРВЕРА\n"
         "━━━━━━━━━━━━━━━━━━\n"
+        f"Данные на: {current_time()}\n\n"
+
         f"Период: {format_period(hours)}\n"
         f"Измерений: {len(metrics)}\n\n"
 
@@ -235,6 +242,120 @@ def process_keyboard():
     ])
 
 
+def docker_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔄 Обновить",
+                callback_data="system_docker",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="system_menu",
+            ),
+        ],
+    ])
+
+
+def services_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔄 Обновить",
+                callback_data="system_services",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="system_menu",
+            ),
+        ],
+    ])
+
+
+def internet_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔄 Обновить",
+                callback_data="system_internet",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="system_menu",
+            ),
+        ],
+    ])
+
+
+def process_cpu_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔄 Обновить",
+                callback_data="processes_cpu",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🧠 Топ RAM",
+                callback_data="processes_ram",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="system_processes",
+            ),
+        ],
+    ])
+
+
+def process_ram_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔄 Обновить",
+                callback_data="processes_ram",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⚡ Топ CPU",
+                callback_data="processes_cpu",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="system_processes",
+            ),
+        ],
+    ])
+
+
+def monitored_processes_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔄 Обновить",
+                callback_data="processes_monitored",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="system_processes",
+            ),
+        ],
+    ])
+
+
 def back_keyboard():
     return InlineKeyboardMarkup([
         [
@@ -249,29 +370,27 @@ def back_keyboard():
 def build_docker_message():
     docker = get_docker_status()
 
+    lines = [
+        "🐳 DOCKER",
+        "━━━━━━━━━━━━━━━━━━",
+        current_time(),
+        "",
+    ]
+
     if not docker["available"]:
-        return (
-            "🐳 DOCKER\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            f"❌ {docker['error']}"
-        )
+        lines.append(f"❌ {docker['error']}")
+        return "\n".join(lines)
 
     containers = docker["containers"]
 
     if not containers:
-        return (
-            "🐳 DOCKER\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            "Контейнеров нет."
-        )
+        lines.append("Контейнеров нет.")
+        return "\n".join(lines)
 
-    lines = [
-        "🐳 DOCKER",
-        "━━━━━━━━━━━━━━━━━━",
-        "",
-        f"Найдено контейнеров: {len(containers)}",
-        "",
-    ]
+    lines.append(
+        f"Найдено контейнеров: {len(containers)}"
+    )
+    lines.append("")
 
     for container in containers:
         status = container["status"]
@@ -295,11 +414,13 @@ def build_services_message():
     lines = [
         "⚙️ СЛУЖБЫ",
         "━━━━━━━━━━━━━━━━━━",
+        current_time(),
         "",
     ]
 
     for service in services:
         status = service["status"]
+        uptime = service["uptime"] or "—"
 
         if status == "active":
             icon = "🟢"
@@ -314,8 +435,7 @@ def build_services_message():
         )
 
         lines.append(
-            f"{icon} {name}\n"
-            f"   {status}"
+            f"{icon} {name} - {status}    {uptime}"
         )
 
     return "\n".join(lines)
@@ -328,13 +448,15 @@ def build_internet_message():
     lines = [
         "🌐 СЕТЬ",
         "━━━━━━━━━━━━━━━━━━",
+        current_time(),
         "",
     ]
 
     if internet["available"]:
         lines.append(
-            f"🟢 Интернет: работает\n"
-            f"   TCP latency: {internet['latency']:.0f} ms"
+            "🟢 Интернет: работает\n"
+            f"   TCP latency: "
+            f"{internet['latency']:.0f} ms"
         )
     else:
         lines.append(
@@ -362,7 +484,7 @@ def build_internet_message():
             f"   Качество: {quality}",
             "",
             "Telegram API успешно отвечает",
-            "через твой SOCKS5 → Xray/VLESS.",
+            "через SOCKS5 → Xray/VLESS.",
         ])
     else:
         lines.extend([
@@ -396,6 +518,7 @@ def build_processes_cpu_message():
     lines = [
         "⚡ ТОП ПРОЦЕССОВ ПО CPU",
         "━━━━━━━━━━━━━━━━━━",
+        current_time(),
         "",
         "   PID    CPU    RAM   PROCESS",
         "",
@@ -413,6 +536,7 @@ def build_processes_ram_message():
     lines = [
         "🧠 ТОП ПРОЦЕССОВ ПО RAM",
         "━━━━━━━━━━━━━━━━━━",
+        current_time(),
         "",
         "   PID    CPU    RAM   PROCESS",
         "",
@@ -430,6 +554,7 @@ def build_monitored_processes_message():
     lines = [
         "🔎 СЕРВИСЫ И БОТЫ",
         "━━━━━━━━━━━━━━━━━━",
+        current_time(),
         "",
     ]
 
@@ -513,7 +638,8 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{format_bytes(memory['total'])}\n\n"
 
         "💾 DISK\n"
-        f"{progress_bar(disk_percent)} {disk_percent:.1f}%\n"
+        f"{progress_bar(disk_percent)} "
+        f"{disk_percent:.1f}%\n"
         f"{format_bytes(disk['used'])} / "
         f"{format_bytes(disk['total'])}\n\n"
 
@@ -577,15 +703,15 @@ async def system_callback(
 
     if action == "system_docker":
         message = build_docker_message()
-        keyboard = back_keyboard()
+        keyboard = docker_keyboard()
 
     elif action == "system_services":
         message = build_services_message()
-        keyboard = back_keyboard()
+        keyboard = services_keyboard()
 
     elif action == "system_internet":
         message = build_internet_message()
-        keyboard = back_keyboard()
+        keyboard = internet_keyboard()
 
     elif action == "system_processes":
         message = (
@@ -597,15 +723,15 @@ async def system_callback(
 
     elif action == "processes_cpu":
         message = build_processes_cpu_message()
-        keyboard = process_keyboard()
+        keyboard = process_cpu_keyboard()
 
     elif action == "processes_ram":
         message = build_processes_ram_message()
-        keyboard = process_keyboard()
+        keyboard = process_ram_keyboard()
 
     elif action == "processes_monitored":
         message = build_monitored_processes_message()
-        keyboard = process_keyboard()
+        keyboard = monitored_processes_keyboard()
 
     elif action == "system_settings":
         message = build_settings_message()
