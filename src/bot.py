@@ -1,14 +1,14 @@
+import asyncio
 import csv
 import os
 import threading
 from datetime import datetime, timedelta
-import asyncio
 
 from services import (
     ServiceMonitor,
     format_event,
     load_settings,
-    save_settings,
+    update_setting,
 )
 from telegram import (
     BotCommand,
@@ -21,6 +21,8 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 from config import (
@@ -41,10 +43,17 @@ from monitor import (
 from collector import collect_loop
 
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CSV_FILE = os.path.join(BASE_DIR, "data", "metrics.csv")
+BASE_DIR = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)
+CSV_FILE = os.path.join(
+    BASE_DIR,
+    "data",
+    "metrics.csv",
+)
 
 service_monitor = ServiceMonitor()
+
 
 def current_time():
     return datetime.now().strftime("%d.%m %H:%M:%S")
@@ -79,7 +88,11 @@ def read_metrics(hours):
     since = datetime.now() - timedelta(hours=hours)
     metrics = []
 
-    with open(CSV_FILE, "r", encoding="utf-8") as file:
+    with open(
+        CSV_FILE,
+        "r",
+        encoding="utf-8",
+    ) as file:
         reader = csv.DictReader(file)
 
         for row in reader:
@@ -148,25 +161,20 @@ def build_stats_message(hours):
         "📊 СТАТИСТИКА СЕРВЕРА\n"
         "━━━━━━━━━━━━━━━━━━\n"
         f"Данные на: {current_time()}\n\n"
-
         f"Период: {format_period(hours)}\n"
         f"Измерений: {len(metrics)}\n\n"
-
         "⚡ CPU\n"
         f"Средняя: {stats['cpu_avg']:.1f}%\n"
         f"Минимум: {stats['cpu_min']:.1f}%\n"
         f"Максимум: {stats['cpu_max']:.1f}%\n\n"
-
         "🧠 RAM\n"
         f"Средняя: {stats['ram_avg']:.1f}%\n"
         f"Минимум: {stats['ram_min']:.1f}%\n"
         f"Максимум: {stats['ram_max']:.1f}%\n\n"
-
         "💾 DISK\n"
         f"В начале: {stats['disk_start']:.1f}%\n"
         f"Сейчас: {stats['disk_end']:.1f}%\n"
         f"Изменение: {disk_change}\n\n"
-
         "⏱ Период измерений\n"
         f"{start_time} — {end_time}"
     )
@@ -380,6 +388,69 @@ def monitored_processes_keyboard():
     ])
 
 
+def settings_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🌐 Настройки сети",
+                callback_data="settings_network",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="system_menu",
+            ),
+        ],
+    ])
+
+
+def network_settings_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "📡 Порог ping",
+                callback_data="network_ping",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⏱ Интервал проверки",
+                callback_data="network_interval",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🔁 Плохих проверок",
+                callback_data="network_failures",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🔐 Вкл/выкл VLESS",
+                callback_data="network_toggle",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="system_settings",
+            ),
+        ],
+    ])
+
+
+def cancel_input_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "❌ Отмена",
+                callback_data="network_cancel",
+            ),
+        ],
+    ])
+
+
 def back_keyboard():
     return InlineKeyboardMarkup([
         [
@@ -405,24 +476,19 @@ def build_status_message():
         "🖥 СЕРВЕР\n"
         "━━━━━━━━━━━━━━━━━━\n"
         f"🟢 {server['hostname']}\n\n"
-
         "⚡ CPU\n"
         f"{progress_bar(cpu)} {cpu:.1f}%\n\n"
-
         "🧠 RAM\n"
         f"{progress_bar(ram)} {ram:.1f}%\n"
         f"{format_bytes(memory['used'])} / "
         f"{format_bytes(memory['total'])}\n\n"
-
         "💾 DISK\n"
         f"{progress_bar(disk_percent)} "
         f"{disk_percent:.1f}%\n"
         f"{format_bytes(disk['used'])} / "
         f"{format_bytes(disk['total'])}\n\n"
-
         "⏱ Uptime\n"
         f"{server['uptime']}\n\n"
-
         f"🕐 Обновлено: {current_time()}"
     )
 
@@ -641,30 +707,100 @@ def build_monitored_processes_message():
 
 
 def build_settings_message():
-    proxy = PROXY_URL if PROXY_URL else "не используется"
-
     return (
         "⚙️ НАСТРОЙКИ\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
-        "🤖 Бот: server-monitor\n"
-        f"🌐 Proxy: {proxy}\n"
-        "📁 Хранилище: CSV\n"
-        "⏱ Сбор данных: каждые 60 секунд"
+        "Выберите раздел:"
     )
+
+
+def build_network_settings_message():
+    settings = load_settings()
+
+    alerts = settings["alerts"]
+    vless = settings["vless"]
+    monitor = settings["monitor"]
+
+    vless_status = "🟢 ВКЛ" if alerts["vless"] else "🔴 ВЫКЛ"
+
+    return (
+        "🌐 НАСТРОЙКИ СЕТИ\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "🔐 VLESS → Telegram\n\n"
+        f"Статус уведомлений: {vless_status}\n\n"
+        f"📡 Порог ping: "
+        f"{vless['ping_threshold']} ms\n"
+        f"⏱ Интервал проверки: "
+        f"{monitor['interval']} сек\n"
+        f"🔁 Плохих проверок подряд: "
+        f"{vless['required_failures']}"
+    )
+
+
+def build_input_message(setting):
+    if setting == "ping":
+        return (
+            "📡 ПОРОГ PING\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "Введите максимальный допустимый "
+            "ping в миллисекундах.\n\n"
+            "Например:\n"
+            "500\n"
+            "1000\n"
+            "1500"
+        )
+
+    if setting == "interval":
+        return (
+            "⏱ ИНТЕРВАЛ ПРОВЕРКИ\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "Введите интервал проверки "
+            "в секундах.\n\n"
+            "Например:\n"
+            "10\n"
+            "30\n"
+            "60"
+        )
+
+    if setting == "failures":
+        return (
+            "🔁 КОЛИЧЕСТВО ПЛОХИХ ПРОВЕРОК\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "Введите количество плохих проверок "
+            "подряд до отправки уведомления.\n\n"
+            "Например:\n"
+            "1\n"
+            "3\n"
+            "5"
+        )
+
+    return "Введите значение:"
 
 
 async def setup_commands(application):
     commands = [
         BotCommand("start", "Запустить бота"),
-        BotCommand("status", "Текущее состояние сервера"),
-        BotCommand("stats", "Статистика сервера"),
-        BotCommand("system", "Управление сервером"),
+        BotCommand(
+            "status",
+            "Текущее состояние сервера",
+        ),
+        BotCommand(
+            "stats",
+            "Статистика сервера",
+        ),
+        BotCommand(
+            "system",
+            "Управление сервером",
+        ),
     ]
 
     await application.bot.set_my_commands(commands)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
     await update.message.reply_text(
         "Привет! Я бот мониторинга сервера.\n\n"
         "Доступные команды:\n"
@@ -674,26 +810,130 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def status(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
     await update.message.reply_text(
         build_status_message(),
         reply_markup=status_keyboard(),
     )
 
 
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def stats(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
     await update.message.reply_text(
         build_stats_message(24),
         reply_markup=stats_keyboard(),
     )
 
 
-async def system(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def system(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
     await update.message.reply_text(
         "🖥 УПРАВЛЕНИЕ СЕРВЕРОМ\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
         "Выберите раздел:",
         reply_markup=system_keyboard(),
+    )
+
+
+async def handle_setting_input(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    setting = context.user_data.get("setting_input")
+
+    if not setting:
+        return
+
+    text = update.message.text.strip()
+
+    try:
+        value = int(text)
+    except ValueError:
+        await update.message.reply_text(
+            "❌ Нужно ввести целое число.\n\n"
+            "Попробуйте ещё раз."
+        )
+        return
+
+    if value <= 0:
+        await update.message.reply_text(
+            "❌ Значение должно быть больше 0.\n\n"
+            "Попробуйте ещё раз."
+        )
+        return
+
+    if setting == "ping":
+        if value > 60000:
+            await update.message.reply_text(
+                "❌ Слишком большое значение.\n\n"
+                "Укажите ping от 1 до 60000 ms."
+            )
+            return
+
+        update_setting(
+            "vless",
+            "ping_threshold",
+            value,
+        )
+
+        message = (
+            "✅ Порог ping изменён.\n\n"
+            f"Новое значение: {value} ms"
+        )
+
+    elif setting == "interval":
+        if value > 86400:
+            await update.message.reply_text(
+                "❌ Слишком большое значение.\n\n"
+                "Укажите интервал от 1 до 86400 секунд."
+            )
+            return
+
+        update_setting(
+            "monitor",
+            "interval",
+            value,
+        )
+
+        message = (
+            "✅ Интервал проверки изменён.\n\n"
+            f"Новое значение: {value} сек"
+        )
+
+    elif setting == "failures":
+        if value > 100:
+            await update.message.reply_text(
+                "❌ Слишком большое значение.\n\n"
+                "Укажите от 1 до 100 проверок."
+            )
+            return
+
+        update_setting(
+            "vless",
+            "required_failures",
+            value,
+        )
+
+        message = (
+            "✅ Количество подтверждений изменено.\n\n"
+            f"Новое значение: {value}"
+        )
+
+    else:
+        return
+
+    context.user_data.pop("setting_input", None)
+
+    await update.message.reply_text(
+        message,
+        reply_markup=network_settings_keyboard(),
     )
 
 
@@ -773,7 +1013,64 @@ async def system_callback(
 
     elif action == "system_settings":
         message = build_settings_message()
-        keyboard = back_keyboard()
+        keyboard = settings_keyboard()
+
+    elif action == "settings_network":
+        message = build_network_settings_message()
+        keyboard = network_settings_keyboard()
+
+    elif action == "network_ping":
+        context.user_data["setting_input"] = "ping"
+
+        await query.edit_message_text(
+            build_input_message("ping"),
+            reply_markup=cancel_input_keyboard(),
+        )
+        return
+
+    elif action == "network_interval":
+        context.user_data["setting_input"] = "interval"
+
+        await query.edit_message_text(
+            build_input_message("interval"),
+            reply_markup=cancel_input_keyboard(),
+        )
+        return
+
+    elif action == "network_failures":
+        context.user_data["setting_input"] = "failures"
+
+        await query.edit_message_text(
+            build_input_message("failures"),
+            reply_markup=cancel_input_keyboard(),
+        )
+        return
+
+    elif action == "network_toggle":
+        settings = load_settings()
+
+        current = settings["alerts"]["vless"]
+
+        update_setting(
+            "alerts",
+            "vless",
+            not current,
+        )
+
+        await query.edit_message_text(
+            build_network_settings_message(),
+            reply_markup=network_settings_keyboard(),
+        )
+        return
+
+    elif action == "network_cancel":
+        context.user_data.pop("setting_input", None)
+
+        await query.edit_message_text(
+            build_network_settings_message(),
+            reply_markup=network_settings_keyboard(),
+        )
+        return
 
     else:
         return
@@ -782,6 +1079,7 @@ async def system_callback(
         message,
         reply_markup=keyboard,
     )
+
 
 async def service_monitor_loop(application):
     service_monitor.initialize()
@@ -800,12 +1098,15 @@ async def service_monitor_loop(application):
                     )
 
         except Exception as error:
-            print(f"Service monitor error: {error}")
+            print(
+                f"Service monitor error: {error}"
+            )
 
         settings = load_settings()
         interval = settings["monitor"]["interval"]
 
         await asyncio.sleep(interval)
+
 
 async def post_init(application):
     await setup_commands(application)
@@ -813,6 +1114,7 @@ async def post_init(application):
     asyncio.create_task(
         service_monitor_loop(application)
     )
+
 
 def main():
     collector_thread = threading.Thread(
@@ -858,7 +1160,14 @@ def main():
     application.add_handler(
         CallbackQueryHandler(
             system_callback,
-            pattern=r"^(system_|processes_|status_)",
+            pattern=r"^(system_|processes_|status_|settings_|network_)",
+        )
+    )
+
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            handle_setting_input,
         )
     )
 

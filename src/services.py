@@ -18,15 +18,15 @@ DEFAULT_SETTINGS = {
     "alerts": {
         "services": True,
         "docker": True,
-        "vless": True
+        "vless": True,
     },
     "vless": {
         "ping_threshold": 1000,
-        "required_failures": 3
+        "required_failures": 3,
     },
     "monitor": {
-        "interval": 30
-    }
+        "interval": 30,
+    },
 }
 
 
@@ -55,9 +55,19 @@ def load_settings():
         ) as file:
             settings = json.load(file)
     except (json.JSONDecodeError, OSError):
-        settings = DEFAULT_SETTINGS.copy()
+        settings = {}
 
-    return settings
+    merged = {
+        "alerts": DEFAULT_SETTINGS["alerts"].copy(),
+        "vless": DEFAULT_SETTINGS["vless"].copy(),
+        "monitor": DEFAULT_SETTINGS["monitor"].copy(),
+    }
+
+    merged["alerts"].update(settings.get("alerts", {}))
+    merged["vless"].update(settings.get("vless", {}))
+    merged["monitor"].update(settings.get("monitor", {}))
+
+    return merged
 
 
 def save_settings(settings):
@@ -74,6 +84,12 @@ def save_settings(settings):
             ensure_ascii=False,
             indent=4,
         )
+
+
+def update_setting(section, key, value):
+    settings = load_settings()
+    settings[section][key] = value
+    save_settings(settings)
 
 
 def get_service_status(service):
@@ -121,7 +137,9 @@ def get_docker_state():
 
         name, state = line.split("|", 1)
 
-        containers[name] = state.strip().lower() == "running"
+        containers[name] = (
+            state.strip().lower() == "running"
+        )
 
     return containers
 
@@ -173,7 +191,6 @@ def check_telegram_proxy():
 
 def get_vless_state():
     result = check_telegram_proxy()
-
     settings = load_settings()
 
     threshold = settings["vless"]["ping_threshold"]
@@ -231,9 +248,6 @@ class ServiceMonitor:
     def check_services(self):
         settings = load_settings()
 
-        if not settings["alerts"]["services"]:
-            return []
-
         current = get_services_state()
         events = []
 
@@ -241,20 +255,21 @@ class ServiceMonitor:
             self.previous_services = current
             return events
 
-        for service, is_running in current.items():
-            previous = self.previous_services.get(service)
+        if settings["alerts"]["services"]:
+            for service, is_running in current.items():
+                previous = self.previous_services.get(service)
 
-            if previous is True and not is_running:
-                events.append({
-                    "type": "service_down",
-                    "name": service,
-                })
+                if previous is True and not is_running:
+                    events.append({
+                        "type": "service_down",
+                        "name": service,
+                    })
 
-            elif previous is False and is_running:
-                events.append({
-                    "type": "service_up",
-                    "name": service,
-                })
+                elif previous is False and is_running:
+                    events.append({
+                        "type": "service_up",
+                        "name": service,
+                    })
 
         self.previous_services = current
 
@@ -263,9 +278,6 @@ class ServiceMonitor:
     def check_docker(self):
         settings = load_settings()
 
-        if not settings["alerts"]["docker"]:
-            return []
-
         current = get_docker_state()
         events = []
 
@@ -273,27 +285,28 @@ class ServiceMonitor:
             self.previous_docker = current
             return events
 
-        for name, is_running in current.items():
-            previous = self.previous_docker.get(name)
+        if settings["alerts"]["docker"]:
+            for name, is_running in current.items():
+                previous = self.previous_docker.get(name)
 
-            if previous is True and not is_running:
-                events.append({
-                    "type": "docker_down",
-                    "name": name,
-                })
+                if previous is True and not is_running:
+                    events.append({
+                        "type": "docker_down",
+                        "name": name,
+                    })
 
-            elif previous is False and is_running:
-                events.append({
-                    "type": "docker_up",
-                    "name": name,
-                })
+                elif previous is False and is_running:
+                    events.append({
+                        "type": "docker_up",
+                        "name": name,
+                    })
 
-        for name, previous in self.previous_docker.items():
-            if name not in current and previous:
-                events.append({
-                    "type": "docker_down",
-                    "name": name,
-                })
+            for name, previous in self.previous_docker.items():
+                if name not in current and previous:
+                    events.append({
+                        "type": "docker_down",
+                        "name": name,
+                    })
 
         self.previous_docker = current
 
@@ -302,19 +315,20 @@ class ServiceMonitor:
     def check_vless(self):
         settings = load_settings()
 
-        if not settings["alerts"]["vless"]:
-            return []
-
         vless = get_vless_state()
+
+        if not settings["alerts"]["vless"]:
+            self.vless_bad_count = 0
+            self.vless_was_bad = False
+            self.previous_vless = vless
+            return []
 
         threshold = settings["vless"]["ping_threshold"]
         required_failures = settings["vless"]["required_failures"]
 
         events = []
 
-        if not vless["working"]:
-            self.vless_bad_count += 1
-        elif vless["ping"] > threshold:
+        if vless["high_ping"]:
             self.vless_bad_count += 1
         else:
             self.vless_bad_count = 0
@@ -330,15 +344,14 @@ class ServiceMonitor:
                 })
 
                 self.vless_was_bad = True
-        else:
-            if self.vless_was_bad and vless["working"]:
-                events.append({
-                    "type": "vless_recovered",
-                    "ping": vless["ping"],
-                    "threshold": threshold,
-                })
+        elif self.vless_was_bad and not vless["high_ping"]:
+            events.append({
+                "type": "vless_recovered",
+                "ping": vless["ping"],
+                "threshold": threshold,
+            })
 
-                self.vless_was_bad = False
+            self.vless_was_bad = False
 
         self.previous_vless = vless
 
