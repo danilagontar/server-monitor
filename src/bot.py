@@ -803,6 +803,8 @@ async def service_monitor_loop(application):
         await asyncio.sleep(interval)
 
 async def post_init(application):
+    await setup_commands(application)
+
     asyncio.create_task(
         service_monitor_loop(application)
     )
@@ -821,7 +823,7 @@ def main():
         builder = builder.proxy(PROXY_URL)
         builder = builder.get_updates_proxy(PROXY_URL)
 
-    builder = builder.post_init(setup_commands)
+    builder = builder.post_init(post_init)
 
     application = builder.build()
 
@@ -853,13 +855,6 @@ def main():
             system_callback,
             pattern=r"^(system_|processes_|status_)",
         )
-    )
-
-    application.job_queue.run_once(
-        lambda context: asyncio.create_task(
-            service_monitor_loop(application)
-        ),
-        when=1,
     )
 
     application.run_polling()
