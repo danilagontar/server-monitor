@@ -274,7 +274,7 @@ def get_service_uptime(started_at):
 def get_services_status():
     services = []
 
-    for service in load_services:
+    for service in load_services():
         data = get_service_status(service)
 
         services.append({
