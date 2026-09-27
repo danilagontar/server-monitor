@@ -12,8 +12,8 @@ from config import BOT_TOKEN, PROXY_URL
 
 SERVICES = [
     "tickets-bot.service",
-    "emias.service",
     "xray.service",
+    "jozycat.service",
 ]
 
 
