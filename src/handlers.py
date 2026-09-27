@@ -13,10 +13,9 @@ from keyboards import (
 from messages import (
     build_settings_message,
     build_status_message,
-    build_stats_message,
 )
 from services import update_setting
-
+from stats import build_stats_message
 
 async def setup_commands(application):
     commands = [
