@@ -17,7 +17,7 @@ def send_shutdown_message():
             "https": PROXY_URL,
         }
 
-    requests.post(
+    response = requests.post(
         url,
         data={
             "chat_id": CHAT_ID,
@@ -31,10 +31,16 @@ def send_shutdown_message():
         timeout=10,
     )
 
+    response.raise_for_status()
+
 
 if __name__ == "__main__":
     try:
         send_shutdown_message()
+        print(
+            "Shutdown notification sent",
+            flush=True,
+        )
     except Exception as error:
         print(
             f"Shutdown notification error: {error}",
