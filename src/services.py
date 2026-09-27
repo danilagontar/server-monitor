@@ -32,10 +32,26 @@ DEFAULT_SETTINGS = {
 
 SERVICES = [
     "tickets-bot.service",
-    "emias.service",
     "xray.service",
-    "server-monitor.service",
+    "jozycat.service",
 ]
+
+def restart_service(service):
+    if service not in SERVICES:
+        return False, "Сервис не разрешён"
+
+    result = subprocess.run(
+        ["sudo", "systemctl", "restart", service],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    if result.returncode != 0:
+        error = result.stderr.strip() or "Неизвестная ошибка"
+        return False, error
+
+    return True, "Сервис успешно перезапущен"
 
 
 def ensure_settings():
