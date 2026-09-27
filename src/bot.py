@@ -1,21 +1,5 @@
 import threading
 
-from config import BOT_TOKEN, PROXY_URL
-from collector import collect_loop
-from handlers import (
-    handle_setting_input,
-    start,
-    stats,
-    status,
-    system,
-)
-from callbacks import (
-    service_restart_callback,
-    stats_callback,
-    system_callback,
-)
-from tasks import post_init
-
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -23,6 +7,34 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+
+from callbacks import (
+    service_restart_callback,
+    stats_callback,
+    system_callback,
+)
+from collector import collect_loop
+from config import BOT_TOKEN, PROXY_URL
+from handlers import (
+    handle_setting_input,
+    start,
+    stats,
+    status,
+    system,
+)
+from tasks import post_init
+
+
+async def error_handler(update, context):
+    error = context.error
+
+    if "Message is not modified" in str(error):
+        return
+
+    print(
+        f"Telegram error: {error}",
+        flush=True,
+    )
 
 
 def main():
@@ -50,6 +62,10 @@ def main():
     )
 
     application = builder.build()
+
+    application.add_error_handler(
+        error_handler
+    )
 
     application.add_handler(
         CommandHandler(

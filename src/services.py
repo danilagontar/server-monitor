@@ -9,9 +9,25 @@ import requests
 from config import PROXY_URL
 
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)
 DATA_DIR = os.path.join(BASE_DIR, "data")
-SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
+SETTINGS_FILE = os.path.join(
+    DATA_DIR,
+    "settings.json",
+)
+SERVICES_FILE = os.path.join(
+    DATA_DIR,
+    "services.json",
+)
+
+
+DEFAULT_SERVICES = [
+    "tickets-bot.service",
+    "xray.service",
+    "jozycat.service",
+]
 
 
 DEFAULT_SETTINGS = {
@@ -30,88 +46,11 @@ DEFAULT_SETTINGS = {
 }
 
 
-SERVICES_FILE = os.path.join(
-    DATA_DIR,
-    "services.json",
-)
-
-def ensure_services():
-    os.makedirs(DATA_DIR, exist_ok=True)
-
-    if not os.path.exists(SERVICES_FILE):
-        save_services([
-            "tickets-bot.service",
-            "xray.service",
-            "jozycat.service",
-        ])
-
-
-def load_services():
-    ensure_services()
-
-    try:
-        with open(
-            SERVICES_FILE,
-            "r",
-            encoding="utf-8",
-        ) as file:
-            data = json.load(file)
-    except (json.JSONDecodeError, OSError):
-        return []
-
-    services = data.get("services", [])
-
-    if not isinstance(services, list):
-        return []
-
-    return [
-        service
-        for service in services
-        if isinstance(service, str) and service
-    ]
-
-
-def save_services(services):
-    os.makedirs(DATA_DIR, exist_ok=True)
-
-    with open(
-        SERVICES_FILE,
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            {"services": services},
-            file,
-            ensure_ascii=False,
-            indent=4,
-        )
-
-def restart_service(service):
-    if service not in load_services:
-        return False, "Сервис не разрешён"
-
-    result = subprocess.run(
-        [
-            "sudo",
-            "-n",
-            "systemctl",
-            "restart",
-            service,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-
-    if result.returncode != 0:
-        error = result.stderr.strip() or "Неизвестная ошибка"
-        return False, error
-
-    return True, "Сервис успешно перезапущен"
-
-
 def ensure_settings():
-    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(
+        DATA_DIR,
+        exist_ok=True,
+    )
 
     if not os.path.exists(SETTINGS_FILE):
         save_settings(DEFAULT_SETTINGS)
@@ -136,15 +75,24 @@ def load_settings():
         "monitor": DEFAULT_SETTINGS["monitor"].copy(),
     }
 
-    merged["alerts"].update(settings.get("alerts", {}))
-    merged["vless"].update(settings.get("vless", {}))
-    merged["monitor"].update(settings.get("monitor", {}))
+    merged["alerts"].update(
+        settings.get("alerts", {})
+    )
+    merged["vless"].update(
+        settings.get("vless", {})
+    )
+    merged["monitor"].update(
+        settings.get("monitor", {})
+    )
 
     return merged
 
 
 def save_settings(settings):
-    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(
+        DATA_DIR,
+        exist_ok=True,
+    )
 
     with open(
         SETTINGS_FILE,
@@ -163,6 +111,63 @@ def update_setting(section, key, value):
     settings = load_settings()
     settings[section][key] = value
     save_settings(settings)
+
+
+def ensure_services():
+    os.makedirs(
+        DATA_DIR,
+        exist_ok=True,
+    )
+
+    if not os.path.exists(SERVICES_FILE):
+        save_services(DEFAULT_SERVICES)
+
+
+def load_services():
+    ensure_services()
+
+    try:
+        with open(
+            SERVICES_FILE,
+            "r",
+            encoding="utf-8",
+        ) as file:
+            data = json.load(file)
+    except (json.JSONDecodeError, OSError):
+        return []
+
+    services = data.get("services", [])
+
+    if not isinstance(services, list):
+        return []
+
+    return [
+        service
+        for service in services
+        if isinstance(service, str)
+        and service.strip()
+    ]
+
+
+def save_services(services):
+    os.makedirs(
+        DATA_DIR,
+        exist_ok=True,
+    )
+
+    with open(
+        SERVICES_FILE,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            {
+                "services": services,
+            },
+            file,
+            ensure_ascii=False,
+            indent=4,
+        )
 
 
 def get_service_status(service):
@@ -184,6 +189,34 @@ def get_services_state():
         service: get_service_status(service)
         for service in load_services()
     }
+
+
+def restart_service(service):
+    if service not in load_services():
+        return False, "Сервис не разрешён"
+
+    result = subprocess.run(
+        [
+            "sudo",
+            "-n",
+            "systemctl",
+            "restart",
+            "--no-block",
+            service,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    if result.returncode != 0:
+        error = (
+            result.stderr.strip()
+            or "Неизвестная ошибка"
+        )
+        return False, error
+
+    return True, "Команда на перезапуск отправлена"
 
 
 def get_docker_state():
@@ -239,7 +272,9 @@ def check_telegram_proxy():
             timeout=10,
         )
 
-        elapsed = (time.monotonic() - start) * 1000
+        elapsed = (
+            time.monotonic() - start
+        ) * 1000
 
         if response.status_code < 500:
             return {
@@ -417,7 +452,11 @@ class ServiceMonitor:
                 })
 
                 self.vless_was_bad = True
-        elif self.vless_was_bad and not vless["high_ping"]:
+
+        elif (
+            self.vless_was_bad
+            and not vless["high_ping"]
+        ):
             events.append({
                 "type": "vless_recovered",
                 "ping": vless["ping"],
@@ -433,9 +472,15 @@ class ServiceMonitor:
     def check_all(self):
         events = []
 
-        events.extend(self.check_services())
-        events.extend(self.check_docker())
-        events.extend(self.check_vless())
+        events.extend(
+            self.check_services()
+        )
+        events.extend(
+            self.check_docker()
+        )
+        events.extend(
+            self.check_vless()
+        )
 
         return events
 

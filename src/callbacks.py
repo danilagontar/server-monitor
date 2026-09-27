@@ -1,6 +1,7 @@
 import asyncio
 
 from telegram import Update
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from config import CHAT_ID
@@ -22,6 +23,7 @@ from keyboards import (
 )
 from messages import (
     build_docker_message,
+    build_input_message,
     build_internet_message,
     build_monitored_processes_message,
     build_network_settings_message,
@@ -30,7 +32,6 @@ from messages import (
     build_services_message,
     build_settings_message,
     build_status_message,
-    build_input_message,
 )
 from monitor import get_service_status
 from services import (
@@ -40,6 +41,21 @@ from services import (
     update_setting,
 )
 from stats import build_stats_message
+
+
+async def safe_edit_message(
+    query,
+    text,
+    reply_markup=None,
+):
+    try:
+        await query.edit_message_text(
+            text,
+            reply_markup=reply_markup,
+        )
+    except BadRequest as error:
+        if "Message is not modified" not in str(error):
+            raise
 
 
 async def stats_callback(
@@ -54,9 +70,10 @@ async def stats_callback(
         query.data.split("_")[1]
     )
 
-    await query.edit_message_text(
+    await safe_edit_message(
+        query,
         build_stats_message(hours),
-        reply_markup=stats_keyboard(),
+        stats_keyboard(),
     )
 
 
@@ -71,18 +88,20 @@ async def system_callback(
     action = query.data
 
     if action == "status_refresh":
-        await query.edit_message_text(
+        await safe_edit_message(
+            query,
             build_status_message(),
-            reply_markup=status_keyboard(),
+            status_keyboard(),
         )
         return
 
     if action == "system_menu":
-        await query.edit_message_text(
+        await safe_edit_message(
+            query,
             "🖥 УПРАВЛЕНИЕ СЕРВЕРОМ\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
             "Выберите раздел:",
-            reply_markup=system_keyboard(),
+            system_keyboard(),
         )
         return
 
@@ -115,9 +134,7 @@ async def system_callback(
         keyboard = process_ram_keyboard()
 
     elif action == "processes_monitored":
-        message = (
-            build_monitored_processes_message()
-        )
+        message = build_monitored_processes_message()
         keyboard = monitored_processes_keyboard()
 
     elif action == "system_settings":
@@ -129,35 +146,32 @@ async def system_callback(
         keyboard = network_settings_keyboard()
 
     elif action == "network_ping":
-        context.user_data[
-            "setting_input"
-        ] = "ping"
+        context.user_data["setting_input"] = "ping"
 
-        await query.edit_message_text(
+        await safe_edit_message(
+            query,
             build_input_message("ping"),
-            reply_markup=cancel_input_keyboard(),
+            cancel_input_keyboard(),
         )
         return
 
     elif action == "network_interval":
-        context.user_data[
-            "setting_input"
-        ] = "interval"
+        context.user_data["setting_input"] = "interval"
 
-        await query.edit_message_text(
+        await safe_edit_message(
+            query,
             build_input_message("interval"),
-            reply_markup=cancel_input_keyboard(),
+            cancel_input_keyboard(),
         )
         return
 
     elif action == "network_failures":
-        context.user_data[
-            "setting_input"
-        ] = "failures"
+        context.user_data["setting_input"] = "failures"
 
-        await query.edit_message_text(
+        await safe_edit_message(
+            query,
             build_input_message("failures"),
-            reply_markup=cancel_input_keyboard(),
+            cancel_input_keyboard(),
         )
         return
 
@@ -172,9 +186,10 @@ async def system_callback(
             not current,
         )
 
-        await query.edit_message_text(
+        await safe_edit_message(
+            query,
             build_network_settings_message(),
-            reply_markup=network_settings_keyboard(),
+            network_settings_keyboard(),
         )
         return
 
@@ -184,18 +199,20 @@ async def system_callback(
             None,
         )
 
-        await query.edit_message_text(
+        await safe_edit_message(
+            query,
             build_network_settings_message(),
-            reply_markup=network_settings_keyboard(),
+            network_settings_keyboard(),
         )
         return
 
     else:
         return
 
-    await query.edit_message_text(
+    await safe_edit_message(
+        query,
         message,
-        reply_markup=keyboard,
+        keyboard,
     )
 
 
@@ -215,18 +232,32 @@ async def service_restart_callback(
     await query.answer()
 
     if query.data == "service_restart_menu":
-        await query.edit_message_text(
+        services = load_services()
+
+        if not services:
+            await safe_edit_message(
+                query,
+                "🔧 ПЕРЕЗАПУСК СЕРВИСА\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Список сервисов пуст.",
+                service_restart_keyboard(),
+            )
+            return
+
+        await safe_edit_message(
+            query,
             "🔧 ПЕРЕЗАПУСК СЕРВИСА\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
             "Выберите сервис:",
-            reply_markup=service_restart_keyboard(),
+            service_restart_keyboard(),
         )
         return
 
     if query.data == "service_restart_back":
-        await query.edit_message_text(
+        await safe_edit_message(
+            query,
             build_services_message(),
-            reply_markup=services_keyboard(),
+            services_keyboard(),
         )
         return
 
@@ -241,8 +272,10 @@ async def service_restart_callback(
     )[1]
 
     if service not in load_services():
-        await query.edit_message_text(
-            "❌ Сервис не разрешён."
+        await safe_edit_message(
+            query,
+            "❌ Сервис не разрешён.",
+            service_restart_keyboard(),
         )
         return
 
@@ -250,8 +283,9 @@ async def service_restart_callback(
         ".service"
     )
 
-    await query.edit_message_text(
-        f"🔄 Перезапускаю {name}..."
+    await safe_edit_message(
+        query,
+        f"🔄 Перезапускаю {name}...",
     )
 
     success, message = restart_service(
@@ -259,26 +293,32 @@ async def service_restart_callback(
     )
 
     if not success:
-        await query.edit_message_text(
+        await safe_edit_message(
+            query,
             f"🔴 Не удалось перезапустить "
             f"{name}\n\n"
             f"{message}",
-            reply_markup=service_restart_keyboard(),
+            service_restart_keyboard(),
         )
         return
 
-    await asyncio.sleep(1)
+    for _ in range(5):
+        await asyncio.sleep(0.5)
 
-    is_running = get_service_status(service)
+        if get_service_status(service):
+            await safe_edit_message(
+                query,
+                f"✅ {name} успешно перезапущен\n\n"
+                "Статус: 🟢 active",
+                service_restart_keyboard(),
+            )
+            return
 
-    status = (
-        "🟢 active"
-        if is_running
-        else "🔴 inactive"
-    )
-
-    await query.edit_message_text(
-        f"✅ {name} перезапущен\n\n"
-        f"Статус: {status}",
-        reply_markup=service_restart_keyboard(),
+    await safe_edit_message(
+        query,
+        f"⚠️ Команда на перезапуск {name} "
+        "отправлена.\n\n"
+        "Сервис пока не перешёл в состояние "
+        "`active`.",
+        service_restart_keyboard(),
     )

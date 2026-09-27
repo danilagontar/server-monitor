@@ -1,6 +1,10 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 
 from services import load_services
+
 
 def stats_keyboard():
     return InlineKeyboardMarkup([
