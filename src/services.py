@@ -199,14 +199,13 @@ def restart_service(service):
         [
             "sudo",
             "-n",
-            "systemctl",
+            "/usr/bin/systemctl",
             "restart",
-            "--no-block",
             service,
         ],
         capture_output=True,
         text=True,
-        timeout=10,
+        timeout=30,
     )
 
     if result.returncode != 0:
@@ -216,7 +215,7 @@ def restart_service(service):
         )
         return False, error
 
-    return True, "Команда на перезапуск отправлена"
+    return True, "Сервис успешно перезапущен"
 
 
 def get_docker_state():
