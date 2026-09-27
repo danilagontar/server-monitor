@@ -8,13 +8,7 @@ import psutil
 import requests
 
 from config import BOT_TOKEN, PROXY_URL
-
-
-SERVICES = [
-    "tickets-bot.service",
-    "xray.service",
-    "jozycat.service",
-]
+from services import load_services
 
 
 def get_uptime():
@@ -280,7 +274,7 @@ def get_service_uptime(started_at):
 def get_services_status():
     services = []
 
-    for service in SERVICES:
+    for service in load_services:
         data = get_service_status(service)
 
         services.append({

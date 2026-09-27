@@ -30,18 +30,74 @@ DEFAULT_SETTINGS = {
 }
 
 
-SERVICES = [
-    "tickets-bot.service",
-    "xray.service",
-    "jozycat.service",
-]
+SERVICES_FILE = os.path.join(
+    DATA_DIR,
+    "services.json",
+)
+
+def ensure_services():
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    if not os.path.exists(SERVICES_FILE):
+        save_services([
+            "tickets-bot.service",
+            "xray.service",
+            "jozycat.service",
+        ])
+
+
+def load_services():
+    ensure_services()
+
+    try:
+        with open(
+            SERVICES_FILE,
+            "r",
+            encoding="utf-8",
+        ) as file:
+            data = json.load(file)
+    except (json.JSONDecodeError, OSError):
+        return []
+
+    services = data.get("services", [])
+
+    if not isinstance(services, list):
+        return []
+
+    return [
+        service
+        for service in services
+        if isinstance(service, str) and service
+    ]
+
+
+def save_services(services):
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    with open(
+        SERVICES_FILE,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            {"services": services},
+            file,
+            ensure_ascii=False,
+            indent=4,
+        )
 
 def restart_service(service):
-    if service not in SERVICES:
+    if service not in load_services:
         return False, "Сервис не разрешён"
 
     result = subprocess.run(
-        ["sudo", "systemctl", "restart", service],
+        [
+            "sudo",
+            "-n",
+            "systemctl",
+            "restart",
+            service,
+        ],
         capture_output=True,
         text=True,
         timeout=30,
@@ -126,7 +182,7 @@ def get_service_status(service):
 def get_services_state():
     return {
         service: get_service_status(service)
-        for service in SERVICES
+        for service in load_services()
     }
 
 
