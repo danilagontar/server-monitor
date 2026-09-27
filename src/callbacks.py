@@ -240,7 +240,7 @@ async def service_restart_callback(
         1,
     )[1]
 
-    if service not in load_services:
+    if service not in load_services():
         await query.edit_message_text(
             "❌ Сервис не разрешён."
         )
