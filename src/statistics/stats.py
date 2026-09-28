@@ -3,12 +3,10 @@ import os
 from datetime import datetime, timedelta
 
 from src.monitoring.network import (
-    calculate_network_stats,
     read_network_metrics,
 )
 from src.utils.utils import (
     current_time,
-    format_bytes,
     format_period,
 )
 
@@ -102,6 +100,55 @@ def calculate_stats(metrics):
     }
 
 
+def calculate_network_period(metrics):
+    if not metrics:
+        return {
+            "received": 0,
+            "sent": 0,
+            "rx_avg": 0,
+            "tx_avg": 0,
+        }
+
+    received = max(
+        0,
+        metrics[-1]["received"]
+        - metrics[0]["received"],
+    )
+
+    sent = max(
+        0,
+        metrics[-1]["sent"]
+        - metrics[0]["sent"],
+    )
+
+    rx_values = [
+        item["rx_speed"]
+        for item in metrics
+        if item["rx_speed"] >= 0
+    ]
+
+    tx_values = [
+        item["tx_speed"]
+        for item in metrics
+        if item["tx_speed"] >= 0
+    ]
+
+    return {
+        "received": received,
+        "sent": sent,
+        "rx_avg": (
+            sum(rx_values) / len(rx_values)
+            if rx_values
+            else 0
+        ),
+        "tx_avg": (
+            sum(tx_values) / len(tx_values)
+            if tx_values
+            else 0
+        ),
+    }
+
+
 def build_stats_message(hours):
     metrics = read_metrics(hours)
 
@@ -118,7 +165,8 @@ def build_stats_message(hours):
     network_metrics = read_network_metrics(
         hours
     )
-    network_stats = calculate_network_stats(
+
+    network_stats = calculate_network_period(
         network_metrics
     )
 
