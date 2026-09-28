@@ -14,7 +14,6 @@ from src.services.services import (
 )
 from src.services.settings import load_settings
 
-
 service_monitor = ServiceMonitor()
 health_monitor = HealthMonitor()
 
@@ -40,9 +39,7 @@ async def service_monitor_loop(application):
                         text=message,
                     )
 
-            health_events = (
-                health_monitor.check_all()
-            )
+            health_events = health_monitor.check_all()
 
             for event in health_events:
                 add_event(
@@ -50,9 +47,7 @@ async def service_monitor_loop(application):
                     _history_message(event),
                 )
 
-                message = format_health_event(
-                    event
-                )
+                message = format_health_event(event)
 
                 if message:
                     await application.bot.send_message(
@@ -86,10 +81,16 @@ def _history_message(event):
         return f"🟢 {name} запущен"
 
     if event_type == "docker_down":
-        return f"🔴 Docker: {event['name']} остановлен"
+        return (
+            f"🔴 Docker: {event['name']} "
+            "остановлен"
+        )
 
     if event_type == "docker_up":
-        return f"🟢 Docker: {event['name']} запущен"
+        return (
+            f"🟢 Docker: {event['name']} "
+            "запущен"
+        )
 
     if event_type == "vless_bad":
         if event["working"]:
@@ -153,13 +154,20 @@ def _history_message(event):
 
 async def post_init(application):
     from src.bot.handlers import setup_commands
+    from src.notifications.startup_notify import (
+        send_startup_message,
+    )
 
     await setup_commands(application)
 
-    add_event(
-        "test",
-        "🟢 Тестовая запись",
-    )
+    try:
+        send_startup_message()
+
+    except Exception as error:
+        print(
+            f"Startup notification error: {error}",
+            flush=True,
+        )
 
     asyncio.create_task(
         service_monitor_loop(application)
