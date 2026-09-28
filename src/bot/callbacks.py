@@ -4,6 +4,7 @@ import subprocess
 from telegram import Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
+from src.monitoring.vless import build_vless_message
 
 from src.config import CHAT_ID
 from src.bot.keyboards import (
@@ -250,14 +251,13 @@ async def callback_handler(
         return
 
     if action == "menu_vless":
+        text = await asyncio.to_thread(
+            build_vless_message
+        )
+
         await safe_edit_message(
             query,
-            (
-                "🔐 VLESS\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                "Статус VLESS и текущий ping\n"
-                "подключим следующим этапом."
-            ),
+            text,
             vless_keyboard(),
         )
         return
