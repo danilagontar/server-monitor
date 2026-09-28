@@ -7,12 +7,16 @@ from datetime import datetime, timedelta
 import psutil
 
 
-BASE_DIR = os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
 )
 
 NETWORK_CSV_FILE = os.path.join(
-    BASE_DIR,
+    PROJECT_DIR,
     "data",
     "network_metrics.csv",
 )
@@ -20,7 +24,9 @@ NETWORK_CSV_FILE = os.path.join(
 
 def get_network_stats():
     total = psutil.net_io_counters()
-    interfaces = psutil.net_io_counters(pernic=True)
+    interfaces = psutil.net_io_counters(
+        pernic=True
+    )
 
     return {
         "total": {
@@ -168,53 +174,6 @@ def read_network_metrics(hours):
     return metrics
 
 
-def calculate_network_stats(metrics):
-    if not metrics:
-        return {
-            "received": 0,
-            "sent": 0,
-            "rx_avg": 0,
-            "tx_avg": 0,
-        }
-
-    received = (
-        metrics[-1]["received"]
-        - metrics[0]["received"]
-    )
-
-    sent = (
-        metrics[-1]["sent"]
-        - metrics[0]["sent"]
-    )
-
-    rx_values = [
-        item["rx_speed"]
-        for item in metrics
-        if item["rx_speed"] > 0
-    ]
-
-    tx_values = [
-        item["tx_speed"]
-        for item in metrics
-        if item["tx_speed"] > 0
-    ]
-
-    return {
-        "received": max(0, received),
-        "sent": max(0, sent),
-        "rx_avg": (
-            sum(rx_values) / len(rx_values)
-            if rx_values
-            else 0
-        ),
-        "tx_avg": (
-            sum(tx_values) / len(tx_values)
-            if tx_values
-            else 0
-        ),
-    }
-
-
 def build_network_message():
     network = get_network_stats()
     speed = get_current_speed()
@@ -223,7 +182,9 @@ def build_network_message():
     if latency is None:
         latency_text = "недоступен"
         internet_icon = "🔴"
-        internet_text = "Интернет недоступен"
+        internet_text = (
+            "Интернет недоступен"
+        )
     else:
         latency_text = f"{latency} ms"
         internet_icon = "🟢"

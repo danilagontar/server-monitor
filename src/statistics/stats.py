@@ -12,7 +12,11 @@ from src.utils.utils import (
 
 
 BASE_DIR = os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
 )
 
 CSV_FILE = os.path.join(
@@ -100,7 +104,7 @@ def calculate_stats(metrics):
     }
 
 
-def calculate_network_period(metrics):
+def calculate_network_stats(metrics):
     if not metrics:
         return {
             "received": 0,
@@ -121,31 +125,19 @@ def calculate_network_period(metrics):
         - metrics[0]["sent"],
     )
 
-    rx_values = [
-        item["rx_speed"]
-        for item in metrics
-        if item["rx_speed"] >= 0
-    ]
+    elapsed = (
+        metrics[-1]["timestamp"]
+        - metrics[0]["timestamp"]
+    ).total_seconds()
 
-    tx_values = [
-        item["tx_speed"]
-        for item in metrics
-        if item["tx_speed"] >= 0
-    ]
+    if elapsed <= 0:
+        elapsed = 1
 
     return {
         "received": received,
         "sent": sent,
-        "rx_avg": (
-            sum(rx_values) / len(rx_values)
-            if rx_values
-            else 0
-        ),
-        "tx_avg": (
-            sum(tx_values) / len(tx_values)
-            if tx_values
-            else 0
-        ),
+        "rx_avg": received / elapsed,
+        "tx_avg": sent / elapsed,
     }
 
 
@@ -166,7 +158,7 @@ def build_stats_message(hours):
         hours
     )
 
-    network_stats = calculate_network_period(
+    network_stats = calculate_network_stats(
         network_metrics
     )
 
@@ -202,8 +194,8 @@ def build_stats_message(hours):
         f"{network_stats['sent'] / 1024 / 1024:.1f} МБ\n\n"
         "Средняя скорость\n"
         f"📥 "
-        f"{network_stats['rx_avg'] / 1024 / 1024:.1f} МБ/с\n"
+        f"{network_stats['rx_avg'] / 1024 / 1024:.3f} МБ/с\n"
         f"📤 "
-        f"{network_stats['tx_avg'] / 1024 / 1024:.1f} МБ/с\n\n"
+        f"{network_stats['tx_avg'] / 1024 / 1024:.3f} МБ/с\n\n"
         f"🕐 Обновлено: {current_time()}"
     )

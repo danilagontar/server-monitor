@@ -6,11 +6,24 @@ from datetime import datetime
 import psutil
 
 
-BASE_DIR = os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.dirname(
+            os.path.abspath(__file__)
+        )
+    )
 )
-DATA_DIR = os.path.join(BASE_DIR, "data")
-CSV_FILE = os.path.join(DATA_DIR, "metrics.csv")
+
+DATA_DIR = os.path.join(
+    PROJECT_DIR,
+    "data",
+)
+
+CSV_FILE = os.path.join(
+    DATA_DIR,
+    "metrics.csv",
+)
+
 NETWORK_CSV_FILE = os.path.join(
     DATA_DIR,
     "network_metrics.csv",
@@ -78,9 +91,11 @@ def collect_metrics():
 
 def collect_network_metrics(previous):
     counters = psutil.net_io_counters()
+
     timestamp = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
     )
+
     current_time = time.monotonic()
 
     received = counters.bytes_recv
@@ -100,6 +115,7 @@ def collect_network_metrics(previous):
             (received - previous["received"])
             / elapsed,
         )
+
         tx_speed = max(
             0,
             (sent - previous["sent"])
