@@ -212,8 +212,10 @@ def build_processes_cpu_message():
             "ТОП ПРОЦЕССОВ ПО CPU",
         ),
         "",
-        "PID   CPU    RAM   PROCESS",
-        "──────────────────────────",
+        current_time(),
+        "",
+        "   PID    CPU    RAM   PROCESS",
+        "━━━━━━━━━━━━━━━━━━━━━━",
     ]
 
     for process in processes:
@@ -223,9 +225,9 @@ def build_processes_cpu_message():
             name = name[:15] + "..."
 
         lines.append(
-            f"{process['pid']:>5} "
-            f"{process['cpu']:>5.1f}% "
-            f"{process['memory']:>5.1f}% "
+            f"{process['pid']:>6} "
+            f"{process['cpu']:>6.1f}% "
+            f"{process['memory']:>6.1f}%  "
             f"{name}"
         )
 
@@ -241,8 +243,10 @@ def build_processes_ram_message():
             "ТОП ПРОЦЕССОВ ПО RAM",
         ),
         "",
-        "PID   CPU    RAM   PROCESS",
-        "──────────────────────────",
+        current_time(),
+        "",
+        "   PID    CPU    RAM   PROCESS",
+        "━━━━━━━━━━━━━━━━━━━━━━",
     ]
 
     for process in processes:
@@ -252,9 +256,9 @@ def build_processes_ram_message():
             name = name[:15] + "..."
 
         lines.append(
-            f"{process['pid']:>5} "
-            f"{process['cpu']:>5.1f}% "
-            f"{process['memory']:>5.1f}% "
+            f"{process['pid']:>6} "
+            f"{process['cpu']:>6.1f}% "
+            f"{process['memory']:>6.1f}%  "
             f"{name}"
         )
 
