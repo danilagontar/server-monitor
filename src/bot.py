@@ -17,11 +17,14 @@ from collector import collect_loop
 from config import BOT_TOKEN, PROXY_URL
 from handlers import (
     handle_setting_input,
+    health,
+    network,
     start,
     stats,
     status,
     system,
 )
+
 from tasks import post_init
 
 
@@ -94,7 +97,19 @@ def main():
             system,
         )
     )
+    application.add_handler(
+        CommandHandler(
+            "health",
+            health,
+        )
+    )
 
+    application.add_handler(
+        CommandHandler(
+            "network",
+            network,
+        )
+    )
     application.add_handler(
         CallbackQueryHandler(
             stats_callback,

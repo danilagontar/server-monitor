@@ -1,6 +1,10 @@
 import asyncio
 
 from config import CHAT_ID
+from health import (
+    HealthMonitor,
+    format_health_event,
+)
 from services import (
     ServiceMonitor,
     format_event,
@@ -9,6 +13,7 @@ from services import (
 
 
 service_monitor = ServiceMonitor()
+health_monitor = HealthMonitor()
 
 
 async def service_monitor_loop(application):
@@ -25,6 +30,22 @@ async def service_monitor_loop(application):
                     await application.bot.send_message(
                         chat_id=CHAT_ID,
                         text=message,
+                    )
+
+            health_events = (
+                health_monitor.check_all()
+            )
+
+            for event in health_events:
+                message = format_health_event(
+                    event
+                )
+
+                if message:
+                    await application.bot.send_message(
+                        chat_id=CHAT_ID,
+                        text=message,
+                        parse_mode="HTML",
                     )
 
         except Exception as error:

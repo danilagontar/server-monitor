@@ -1,5 +1,6 @@
 from telegram import BotCommand, Update
 from telegram.ext import ContextTypes
+from health import build_health_message
 
 from config import CHAT_ID
 from keyboards import (
@@ -14,6 +15,12 @@ from messages import (
     build_settings_message,
     build_status_message,
 )
+
+from health import (
+    build_health_message,
+    build_network_message,
+)
+
 from services import update_setting
 from stats import build_stats_message
 
@@ -185,4 +192,16 @@ async def handle_setting_input(
     await update.message.reply_text(
         message,
         reply_markup=network_settings_keyboard(),
+    )
+async def health(update, context):
+    await update.message.reply_text(
+        build_health_message(),
+        parse_mode="HTML",
+    )
+
+
+async def network(update, context):
+    await update.message.reply_text(
+        build_network_message(),
+        parse_mode="HTML",
     )

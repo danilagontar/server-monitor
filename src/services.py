@@ -35,9 +35,19 @@ DEFAULT_SETTINGS = {
         "services": True,
         "docker": True,
         "vless": True,
+        "cpu": True,
+        "ram": True,
+        "disk": True,
+        "internet": True,
     },
     "vless": {
         "ping_threshold": 1000,
+        "required_failures": 3,
+    },
+    "system": {
+        "cpu_threshold": 90,
+        "ram_threshold": 90,
+        "disk_threshold": 90,
         "required_failures": 3,
     },
     "monitor": {
