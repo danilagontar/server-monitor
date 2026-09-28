@@ -432,7 +432,8 @@ async def callback_handler(
                 "━━━━━━━━━━━━━━━━━━"
             ),
             notifications_settings_keyboard(
-                settings
+                settings,
+                "settings_back",
             ),
         )
         return

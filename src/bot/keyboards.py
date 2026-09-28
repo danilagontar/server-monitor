@@ -437,7 +437,10 @@ def reboot_confirm_keyboard():
         ],
     ])
 
-def notifications_settings_keyboard(settings):
+def notifications_settings_keyboard(
+    settings,
+    back_callback="main_menu",
+):
     alerts = settings["alerts"]
 
     def status(key):
@@ -448,51 +451,52 @@ def notifications_settings_keyboard(settings):
             InlineKeyboardButton(
                 f"⚙️ Сервисы: {status('services')}",
                 callback_data="notification_toggle:services",
-            ),
+            )
         ],
         [
             InlineKeyboardButton(
                 f"🐳 Docker: {status('docker')}",
                 callback_data="notification_toggle:docker",
-            ),
+            )
         ],
         [
             InlineKeyboardButton(
                 f"🔐 VLESS: {status('vless')}",
                 callback_data="notification_toggle:vless",
-            ),
+            )
         ],
         [
             InlineKeyboardButton(
                 f"⚡ CPU: {status('cpu')}",
                 callback_data="notification_toggle:cpu",
-            ),
+            )
         ],
         [
             InlineKeyboardButton(
                 f"🧠 RAM: {status('ram')}",
                 callback_data="notification_toggle:ram",
-            ),
+            )
         ],
         [
             InlineKeyboardButton(
                 f"💾 Диск: {status('disk')}",
                 callback_data="notification_toggle:disk",
-            ),
+            )
         ],
         [
             InlineKeyboardButton(
                 f"🌐 Интернет: {status('internet')}",
                 callback_data="notification_toggle:internet",
-            ),
+            )
         ],
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="main_menu",
-            ),
+                callback_data=back_callback,
+            )
         ],
     ])
+
 def monitoring_settings_keyboard():
     return InlineKeyboardMarkup([
         [
