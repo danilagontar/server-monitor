@@ -35,7 +35,6 @@ def build_status_message():
 
     return (
         f"{section_header('📊', 'СТАТУС СЕРВЕРА')}\n\n"
-        f"🖥 Hostname: {server['hostname']}\n\n"
         f"⚡ CPU: {cpu:.1f}%\n"
         f"{progress_bar(cpu)}\n\n"
         f"🧠 RAM: {ram:.1f}%\n"
