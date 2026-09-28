@@ -6,13 +6,20 @@ from telegram.ext import ContextTypes
 
 from src.config import CHAT_ID
 from src.bot.keyboards import (
-    build_stats_keyboard,
-    build_system_keyboard,
-    build_processes_keyboard,
-    build_docker_keyboard,
-    build_services_keyboard,
-    build_settings_keyboard,
-    build_network_settings_keyboard,
+    stats_keyboard,
+    system_keyboard,
+    status_keyboard,
+    process_keyboard,
+    docker_keyboard,
+    services_keyboard,
+    service_restart_keyboard,
+    internet_keyboard,
+    process_cpu_keyboard,
+    process_ram_keyboard,
+    monitored_processes_keyboard,
+    settings_keyboard,
+    network_settings_keyboard,
+    cancel_input_keyboard,
 )
 from src.bot.messages import (
     build_status_message,
