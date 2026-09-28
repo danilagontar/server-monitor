@@ -4,9 +4,7 @@ import subprocess
 from telegram import Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
-from src.monitoring.vless import build_vless_message
 
-from src.config import CHAT_ID
 from src.bot.keyboards import (
     main_keyboard,
     back_keyboard,
@@ -27,7 +25,7 @@ from src.bot.keyboards import (
     system_settings_keyboard,
     reboot_confirm_keyboard,
     notifications_settings_keyboard,
-    status_keyboard,
+    monitoring_settings_keyboard,
 )
 from src.bot.messages import (
     build_input_message,
@@ -40,21 +38,22 @@ from src.bot.messages import (
     build_settings_message,
     build_network_settings_message,
     build_history_message,
+    build_monitoring_settings_message,
 )
-
 from src.monitoring.monitor import get_service_status
 from src.monitoring.network import build_network_message
+from src.monitoring.vless import build_vless_message
 from src.services.services import (
     restart_service,
     load_services,
 )
-from src.statistics.stats import build_stats_message
-
-from src.monitoring.vless import build_vless_message
 from src.services.settings import (
     load_settings,
     update_setting,
 )
+from src.statistics.stats import build_stats_message
+from src.config import CHAT_ID
+
 
 async def safe_edit_message(
     query,
@@ -230,9 +229,7 @@ async def callback_handler(
         return
 
     if action.startswith("service_restart:"):
-        await restart_service_callback(
-            query,
-        )
+        await restart_service_callback(query)
         return
 
     if action == "menu_network":
@@ -282,9 +279,12 @@ async def callback_handler(
         await safe_edit_message(
             query,
             text,
-            notifications_settings_keyboard(settings),
+            notifications_settings_keyboard(
+                settings
+            ),
         )
         return
+
     if action.startswith("notification_toggle:"):
         notification = action.split(":", 1)[1]
 
@@ -309,9 +309,12 @@ async def callback_handler(
                 "🔔 УВЕДОМЛЕНИЯ\n"
                 "━━━━━━━━━━━━━━━━━━"
             ),
-            notifications_settings_keyboard(settings),
+            notifications_settings_keyboard(
+                settings
+            ),
         )
         return
+
     if action == "menu_history":
         await safe_edit_message(
             query,
@@ -373,6 +376,7 @@ async def callback_handler(
         settings = load_settings()
 
         current = settings["alerts"]["vless"]
+
         update_setting(
             "alerts",
             "vless",
@@ -416,18 +420,20 @@ async def callback_handler(
 
     if action == "settings_notifications":
         context.user_data["settings_previous"] = (
-            "menu_notifications"
+            "menu_settings"
         )
+
+        settings = load_settings()
 
         await safe_edit_message(
             query,
             (
                 "🔔 УВЕДОМЛЕНИЯ\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                "Настройки уведомлений\n"
-                "подключим следующим этапом."
+                "━━━━━━━━━━━━━━━━━━"
             ),
-            back_keyboard("settings_back"),
+            notifications_settings_keyboard(
+                settings
+            ),
         )
         return
 
@@ -438,13 +444,8 @@ async def callback_handler(
 
         await safe_edit_message(
             query,
-            (
-                "📊 МОНИТОРИНГ\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                "Настройки мониторинга\n"
-                "подключим следующим этапом."
-            ),
-            back_keyboard("settings_back"),
+            build_monitoring_settings_message(),
+            monitoring_settings_keyboard(),
         )
         return
 
@@ -478,17 +479,123 @@ async def callback_handler(
         return
 
     if action == "system_reboot":
+        result = subprocess.run(
+            [
+                "/usr/bin/sudo",
+                "-n",
+                "/usr/bin/systemctl",
+                "reboot",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if result.returncode != 0:
+            error = (
+                result.stderr.strip()
+                or result.stdout.strip()
+                or "Неизвестная ошибка"
+            )
+
+            await safe_edit_message(
+                query,
+                (
+                    "🔴 ОШИБКА ПЕРЕЗАПУСКА\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{error}"
+                ),
+                system_settings_keyboard(),
+            )
+            return
+
         await safe_edit_message(
             query,
             (
                 "🔄 ПЕРЕЗАПУСК СЕРВЕРА\n"
                 "━━━━━━━━━━━━━━━━━━\n\n"
-                "Сервер будет перезапущен."
+                "Сервер перезапускается..."
             ),
         )
+        return
 
-        subprocess.Popen(
-            ["sudo", "systemctl", "reboot"]
+    if action == "monitor_interval":
+        context.user_data["setting_input"] = (
+            "monitor_interval"
+        )
+
+        await safe_edit_message(
+            query,
+            (
+                "⏱ ИНТЕРВАЛ ПРОВЕРКИ\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Введите интервал в секундах:"
+            ),
+            cancel_input_keyboard(),
+        )
+        return
+
+    if action == "monitor_cpu":
+        context.user_data["setting_input"] = (
+            "monitor_cpu"
+        )
+
+        await safe_edit_message(
+            query,
+            (
+                "⚡ ПОРОГ CPU\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Введите порог в процентах:"
+            ),
+            cancel_input_keyboard(),
+        )
+        return
+
+    if action == "monitor_ram":
+        context.user_data["setting_input"] = (
+            "monitor_ram"
+        )
+
+        await safe_edit_message(
+            query,
+            (
+                "🧠 ПОРОГ RAM\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Введите порог в процентах:"
+            ),
+            cancel_input_keyboard(),
+        )
+        return
+
+    if action == "monitor_disk":
+        context.user_data["setting_input"] = (
+            "monitor_disk"
+        )
+
+        await safe_edit_message(
+            query,
+            (
+                "💾 ПОРОГ ДИСКА\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Введите порог в процентах:"
+            ),
+            cancel_input_keyboard(),
+        )
+        return
+
+    if action == "monitor_failures":
+        context.user_data["setting_input"] = (
+            "monitor_failures"
+        )
+
+        await safe_edit_message(
+            query,
+            (
+                "🔁 ПЛОХИХ ПРОВЕРОК\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Введите количество проверок:"
+            ),
+            cancel_input_keyboard(),
         )
         return
 
@@ -571,9 +678,11 @@ async def restart_service_callback(query):
     if not success:
         await safe_edit_message(
             query,
-            f"🔴 Не удалось перезапустить "
-            f"{name}\n\n"
-            f"{message}",
+            (
+                f"🔴 Не удалось перезапустить "
+                f"{name}\n\n"
+                f"{message}"
+            ),
             service_restart_keyboard(),
         )
         return
@@ -584,17 +693,21 @@ async def restart_service_callback(query):
         if get_service_status(service):
             await safe_edit_message(
                 query,
-                f"✅ {name} успешно перезапущен\n\n"
-                "Статус: 🟢 active",
+                (
+                    f"✅ {name} успешно перезапущен\n\n"
+                    "Статус: 🟢 active"
+                ),
                 service_restart_keyboard(),
             )
             return
 
     await safe_edit_message(
         query,
-        f"⚠️ Команда на перезапуск {name} "
-        "отправлена.\n\n"
-        "Сервис пока не перешёл в состояние "
-        "`active`.",
+        (
+            f"⚠️ Команда на перезапуск {name} "
+            "отправлена.\n\n"
+            "Сервис пока не перешёл в состояние "
+            "`active`."
+        ),
         service_restart_keyboard(),
     )

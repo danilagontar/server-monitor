@@ -493,3 +493,40 @@ def notifications_settings_keyboard(settings):
             ),
         ],
     ])
+def monitoring_settings_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "⏱ Интервал проверки",
+                callback_data="monitor_interval",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⚡ Порог CPU",
+                callback_data="monitor_cpu",
+            ),
+            InlineKeyboardButton(
+                "🧠 Порог RAM",
+                callback_data="monitor_ram",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "💾 Порог диска",
+                callback_data="monitor_disk",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🔁 Плохих проверок",
+                callback_data="monitor_failures",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="settings_back",
+            ),
+        ],
+    ])

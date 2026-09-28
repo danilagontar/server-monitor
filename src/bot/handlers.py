@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 from src.bot.keyboards import (
     main_keyboard,
     network_settings_keyboard,
+    monitoring_settings_keyboard,
 )
 from src.bot.messages import (
     build_input_message,
@@ -26,10 +27,7 @@ async def setup_commands(application):
     await application.bot.set_my_commands(commands)
 
 
-async def start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def start(update, context):
     context.user_data.clear()
 
     await update.message.reply_text(
@@ -39,8 +37,8 @@ async def start(
 
 
 async def handle_setting_input(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
     if not update.message:
         return
@@ -127,6 +125,101 @@ async def handle_setting_input(
             f"Новое значение: {value}"
         )
 
+    elif setting == "monitor_interval":
+        if value > 86400:
+            await update.message.reply_text(
+                "❌ Слишком большое значение.\n\n"
+                "Укажите интервал от 1 до 86400 секунд."
+            )
+            return
+
+        update_setting(
+            "monitor",
+            "interval",
+            value,
+        )
+
+        message = (
+            "✅ Интервал проверки изменён.\n\n"
+            f"Новое значение: {value} сек"
+        )
+
+    elif setting == "monitor_cpu":
+        if value > 100:
+            await update.message.reply_text(
+                "❌ Порог CPU должен быть "
+                "от 1 до 100%."
+            )
+            return
+
+        update_setting(
+            "system",
+            "cpu_threshold",
+            value,
+        )
+
+        message = (
+            "✅ Порог CPU изменён.\n\n"
+            f"Новое значение: {value}%"
+        )
+
+    elif setting == "monitor_ram":
+        if value > 100:
+            await update.message.reply_text(
+                "❌ Порог RAM должен быть "
+                "от 1 до 100%."
+            )
+            return
+
+        update_setting(
+            "system",
+            "ram_threshold",
+            value,
+        )
+
+        message = (
+            "✅ Порог RAM изменён.\n\n"
+            f"Новое значение: {value}%"
+        )
+
+    elif setting == "monitor_disk":
+        if value > 100:
+            await update.message.reply_text(
+                "❌ Порог диска должен быть "
+                "от 1 до 100%."
+            )
+            return
+
+        update_setting(
+            "system",
+            "disk_threshold",
+            value,
+        )
+
+        message = (
+            "✅ Порог диска изменён.\n\n"
+            f"Новое значение: {value}%"
+        )
+
+    elif setting == "monitor_failures":
+        if value > 100:
+            await update.message.reply_text(
+                "❌ Слишком большое значение.\n\n"
+                "Укажите от 1 до 100 проверок."
+            )
+            return
+
+        update_setting(
+            "system",
+            "required_failures",
+            value,
+        )
+
+        message = (
+            "✅ Количество проверок изменено.\n\n"
+            f"Новое значение: {value}"
+        )
+
     else:
         return
 
@@ -134,6 +227,13 @@ async def handle_setting_input(
         "setting_input",
         None,
     )
+
+    if setting.startswith("monitor_"):
+        await update.message.reply_text(
+            message,
+            reply_markup=monitoring_settings_keyboard(),
+        )
+        return
 
     settings = load_settings()
 

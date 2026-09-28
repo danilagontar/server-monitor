@@ -399,3 +399,21 @@ def build_history_message():
         )
 
     return "\n".join(lines)
+def build_monitoring_settings_message():
+    settings = load_settings()
+    monitor = settings["monitor"]
+    system = settings["system"]
+
+    return (
+        f"{section_header('📊', 'МОНИТОРИНГ')}\n\n"
+        f"⏱ Интервал проверки: "
+        f"{monitor['interval']} сек\n"
+        f"⚡ Порог CPU: "
+        f"{system['cpu_threshold']}%\n"
+        f"🧠 Порог RAM: "
+        f"{system['ram_threshold']}%\n"
+        f"💾 Порог диска: "
+        f"{system['disk_threshold']}%\n"
+        f"🔁 Плохих проверок подряд: "
+        f"{system['required_failures']}"
+    )
