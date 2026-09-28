@@ -133,6 +133,8 @@ def build_stats_message(hours):
         f"📈 СТАТИСТИКА — "
         f"{format_period(hours).upper()}\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
+        f"Период: {format_period(hours)}\n"
+        f"Данных собрано: {len(metrics)}\n\n"
         "⚡ CPU\n"
         f"Среднее: {stats['cpu_avg']:.1f}%\n"
         f"Минимум: {stats['cpu_min']:.1f}%\n"

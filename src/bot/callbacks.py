@@ -158,11 +158,7 @@ async def callback_handler(
     if action == "management_processes":
         await safe_edit_message(
             query,
-            (
-                "📊 ПРОЦЕССЫ\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                "Выберите сортировку:"
-            ),
+            build_processes_cpu_message(),
             process_keyboard("cpu"),
         )
         return
