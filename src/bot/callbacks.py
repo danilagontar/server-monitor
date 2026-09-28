@@ -26,6 +26,8 @@ from src.bot.keyboards import (
     cancel_input_keyboard,
     system_settings_keyboard,
     reboot_confirm_keyboard,
+    notifications_settings_keyboard,
+    status_keyboard,
 )
 from src.bot.messages import (
     build_input_message,
@@ -269,17 +271,46 @@ async def callback_handler(
         return
 
     if action == "menu_notifications":
+        settings = load_settings()
+
+        text = (
+            "🔔 УВЕДОМЛЕНИЯ\n"
+            "━━━━━━━━━━━━━━━━━━"
+        )
+
+        await safe_edit_message(
+            query,
+            text,
+            notifications_settings_keyboard(settings),
+        )
+        return
+    if action.startswith("notification_toggle:"):
+        notification = action.split(":", 1)[1]
+
+        settings = load_settings()
+
+        if notification not in settings["alerts"]:
+            return
+
+        current = settings["alerts"][notification]
+
+        update_setting(
+            "alerts",
+            notification,
+            not current,
+        )
+
+        settings = load_settings()
+
         await safe_edit_message(
             query,
             (
                 "🔔 УВЕДОМЛЕНИЯ\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                "Настройки уведомлений."
+                "━━━━━━━━━━━━━━━━━━"
             ),
-            notifications_keyboard(),
+            notifications_settings_keyboard(settings),
         )
         return
-
     if action == "menu_history":
         await safe_edit_message(
             query,
