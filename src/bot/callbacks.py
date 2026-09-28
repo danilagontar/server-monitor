@@ -52,7 +52,7 @@ from src.services.settings import (
     update_setting,
 )
 from src.statistics.stats import build_stats_message
-from src.config import CHAT_ID
+from src.config import ALLOWED_USER_IDS
 
 
 async def safe_edit_message(
@@ -100,13 +100,10 @@ async def show_settings(query):
     )
 
 
-async def callback_handler(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
+async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
 
-    if str(query.message.chat_id) != str(CHAT_ID):
+    if query.from_user.id not in ALLOWED_USER_IDS:
         await query.answer(
             "Доступ запрещён",
             show_alert=True,
