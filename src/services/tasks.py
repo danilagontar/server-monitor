@@ -156,6 +156,11 @@ async def post_init(application):
 
     await setup_commands(application)
 
+    add_event(
+        "test",
+        "🟢 Тестовая запись",
+    )
+
     asyncio.create_task(
         service_monitor_loop(application)
     )
