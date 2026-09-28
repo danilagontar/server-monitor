@@ -206,12 +206,18 @@ def get_services_state():
 
 
 def restart_service(service):
-    if service not in load_services():
+    allowed_services = {
+        "tickets-bot.service",
+        "xray.service",
+        "jozycat.service",
+    }
+
+    if service not in allowed_services:
         return False, "Сервис не разрешён"
 
     result = subprocess.run(
         [
-            "sudo",
+            "/usr/bin/sudo",
             "-n",
             "/usr/bin/systemctl",
             "restart",
@@ -225,8 +231,10 @@ def restart_service(service):
     if result.returncode != 0:
         error = (
             result.stderr.strip()
+            or result.stdout.strip()
             or "Неизвестная ошибка"
         )
+
         return False, error
 
     return True, "Сервис успешно перезапущен"

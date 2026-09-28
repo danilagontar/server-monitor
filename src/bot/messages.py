@@ -131,19 +131,13 @@ def build_services_message():
         else:
             icon = "🟡"
 
-        name = service["name"].replace(
-            ".service",
-            "",
+        name = service["name"].removesuffix(".service")
+
+        lines.append(
+            f"{icon} {name}  {status}  {uptime}"
         )
 
-        lines.extend([
-            f"{icon} {name}",
-            f"   Статус: {status}",
-            f"   Uptime: {uptime}",
-            "",
-        ])
-
-    return "\n".join(lines).rstrip()
+    return "\n".join(lines)
 
 
 def build_internet_message():
