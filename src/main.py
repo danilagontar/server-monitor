@@ -8,25 +8,13 @@ from telegram.ext import (
     filters,
 )
 
-from src.bot.callbacks import (
-    service_restart_callback,
-    stats_callback,
-    system_callback,
-)
-from src.monitoring.collector import collect_loop
-from src.config import BOT_TOKEN, PROXY_URL
-
-
+from src.bot.callbacks import callback_handler
 from src.bot.handlers import (
     handle_setting_input,
     start,
-    stats,
-    status,
-    system,
-    health,
-    network,
 )
-
+from src.config import BOT_TOKEN, PROXY_URL
+from src.monitoring.collector import collect_loop
 from src.services.tasks import post_init
 
 
@@ -80,59 +68,8 @@ def main():
     )
 
     application.add_handler(
-        CommandHandler(
-            "status",
-            status,
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "stats",
-            stats,
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "system",
-            system,
-        )
-    )
-    application.add_handler(
-        CommandHandler(
-            "health",
-            health,
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "network",
-            network,
-        )
-    )
-    application.add_handler(
         CallbackQueryHandler(
-            stats_callback,
-            pattern=r"^stats_",
-        )
-    )
-
-    application.add_handler(
-        CallbackQueryHandler(
-            service_restart_callback,
-            pattern=r"^service_restart",
-        )
-    )
-
-    application.add_handler(
-        CallbackQueryHandler(
-            system_callback,
-            pattern=(
-                r"^(system_|processes_|status_|"
-                r"settings_|network_)"
-            ),
+            callback_handler,
         )
     )
 

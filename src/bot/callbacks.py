@@ -1,4 +1,5 @@
 import asyncio
+import subprocess
 
 from telegram import Update
 from telegram.error import BadRequest
@@ -6,20 +7,24 @@ from telegram.ext import ContextTypes
 
 from src.config import CHAT_ID
 from src.bot.keyboards import (
-    stats_keyboard,
-    system_keyboard,
+    main_keyboard,
+    back_keyboard,
     status_keyboard,
+    stats_keyboard,
+    management_keyboard,
     process_keyboard,
     docker_keyboard,
     services_keyboard,
     service_restart_keyboard,
-    internet_keyboard,
-    process_cpu_keyboard,
-    process_ram_keyboard,
-    monitored_processes_keyboard,
+    network_keyboard,
+    vless_keyboard,
+    notifications_keyboard,
+    history_keyboard,
     settings_keyboard,
     network_settings_keyboard,
     cancel_input_keyboard,
+    system_settings_keyboard,
+    reboot_confirm_keyboard,
 )
 from src.bot.messages import (
     build_status_message,
@@ -28,7 +33,6 @@ from src.bot.messages import (
     build_internet_message,
     build_processes_cpu_message,
     build_processes_ram_message,
-    build_monitored_processes_message,
     build_settings_message,
     build_network_settings_message,
 )
@@ -36,7 +40,6 @@ from src.monitoring.monitor import get_service_status
 from src.services.services import (
     restart_service,
     load_services,
-    update_setting,
 )
 from src.statistics.stats import build_stats_message
 
@@ -56,165 +59,44 @@ async def safe_edit_message(
             raise
 
 
-async def stats_callback(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    query = update.callback_query
-
-    await query.answer()
-
-    hours = int(
-        query.data.split("_")[1]
+async def show_main_menu(query):
+    text = (
+        "🖥 SERVER MONITOR\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "🟢 Сервер работает\n\n"
+        "Выберите раздел:"
     )
 
     await safe_edit_message(
         query,
-        build_stats_message(hours),
-        stats_keyboard(),
+        text,
+        main_keyboard(),
     )
 
 
-async def system_callback(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    query = update.callback_query
-
-    await query.answer()
-
-    action = query.data
-
-    if action == "status_refresh":
-        await safe_edit_message(
-            query,
-            build_status_message(),
-            status_keyboard(),
-        )
-        return
-
-    if action == "system_menu":
-        await safe_edit_message(
-            query,
-            "🖥 УПРАВЛЕНИЕ СЕРВЕРОМ\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            "Выберите раздел:",
-            system_keyboard(),
-        )
-        return
-
-    if action == "system_docker":
-        message = build_docker_message()
-        keyboard = docker_keyboard()
-
-    elif action == "system_services":
-        message = build_services_message()
-        keyboard = services_keyboard()
-
-    elif action == "system_internet":
-        message = build_internet_message()
-        keyboard = internet_keyboard()
-
-    elif action == "system_processes":
-        message = (
-            "📊 ПРОЦЕССЫ\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            "Выберите сортировку:"
-        )
-        keyboard = process_keyboard()
-
-    elif action == "processes_cpu":
-        message = build_processes_cpu_message()
-        keyboard = process_cpu_keyboard()
-
-    elif action == "processes_ram":
-        message = build_processes_ram_message()
-        keyboard = process_ram_keyboard()
-
-    elif action == "processes_monitored":
-        message = build_monitored_processes_message()
-        keyboard = monitored_processes_keyboard()
-
-    elif action == "system_settings":
-        message = build_settings_message()
-        keyboard = settings_keyboard()
-
-    elif action == "settings_network":
-        message = build_network_settings_message()
-        keyboard = network_settings_keyboard()
-
-    elif action == "network_ping":
-        context.user_data["setting_input"] = "ping"
-
-        await safe_edit_message(
-            query,
-            build_input_message("ping"),
-            cancel_input_keyboard(),
-        )
-        return
-
-    elif action == "network_interval":
-        context.user_data["setting_input"] = "interval"
-
-        await safe_edit_message(
-            query,
-            build_input_message("interval"),
-            cancel_input_keyboard(),
-        )
-        return
-
-    elif action == "network_failures":
-        context.user_data["setting_input"] = "failures"
-
-        await safe_edit_message(
-            query,
-            build_input_message("failures"),
-            cancel_input_keyboard(),
-        )
-        return
-
-    elif action == "network_toggle":
-        settings = load_settings()
-
-        current = settings["alerts"]["vless"]
-
-        update_setting(
-            "alerts",
-            "vless",
-            not current,
-        )
-
-        await safe_edit_message(
-            query,
-            build_network_settings_message(),
-            network_settings_keyboard(),
-        )
-        return
-
-    elif action == "network_cancel":
-        context.user_data.pop(
-            "setting_input",
-            None,
-        )
-
-        await safe_edit_message(
-            query,
-            build_network_settings_message(),
-            network_settings_keyboard(),
-        )
-        return
-
-    else:
-        return
+async def show_management(query):
+    text = (
+        "🖥 УПРАВЛЕНИЕ\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "Выберите раздел:"
+    )
 
     await safe_edit_message(
         query,
-        message,
-        keyboard,
+        text,
+        management_keyboard(),
     )
 
 
-async def service_restart_callback(
+async def show_settings(query):
+    await safe_edit_message(
+        query,
+        build_settings_message(),
+        settings_keyboard(),
+    )
+
+
+async def callback_handler(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
@@ -229,29 +111,93 @@ async def service_restart_callback(
 
     await query.answer()
 
-    if query.data == "service_restart_menu":
-        services = load_services()
+    action = query.data
 
-        if not services:
-            await safe_edit_message(
-                query,
-                "🔧 ПЕРЕЗАПУСК СЕРВИСА\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                "Список сервисов пуст.",
-                service_restart_keyboard(),
-            )
-            return
+    if action == "main_menu":
+        await show_main_menu(query)
+        return
 
+    if action == "menu_status":
         await safe_edit_message(
             query,
-            "🔧 ПЕРЕЗАПУСК СЕРВИСА\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            "Выберите сервис:",
-            service_restart_keyboard(),
+            build_status_message(),
+            status_keyboard(),
         )
         return
 
-    if query.data == "service_restart_back":
+    if action == "status_refresh":
+        await safe_edit_message(
+            query,
+            build_status_message(),
+            status_keyboard(),
+        )
+        return
+
+    if action == "menu_stats":
+        await safe_edit_message(
+            query,
+            build_stats_message(1),
+            stats_keyboard(1),
+        )
+        return
+
+    if action.startswith("stats_"):
+        hours = int(
+            action.split("_")[1]
+        )
+
+        await safe_edit_message(
+            query,
+            build_stats_message(hours),
+            stats_keyboard(hours),
+        )
+        return
+
+    if action == "menu_management":
+        await show_management(query)
+        return
+
+    if action == "management_menu":
+        await show_management(query)
+        return
+
+    if action == "management_processes":
+        await safe_edit_message(
+            query,
+            (
+                "📊 ПРОЦЕССЫ\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Выберите сортировку:"
+            ),
+            process_keyboard("cpu"),
+        )
+        return
+
+    if action == "processes_cpu":
+        await safe_edit_message(
+            query,
+            build_processes_cpu_message(),
+            process_keyboard("cpu"),
+        )
+        return
+
+    if action == "processes_ram":
+        await safe_edit_message(
+            query,
+            build_processes_ram_message(),
+            process_keyboard("ram"),
+        )
+        return
+
+    if action == "management_docker":
+        await safe_edit_message(
+            query,
+            build_docker_message(),
+            docker_keyboard(),
+        )
+        return
+
+    if action == "management_services":
         await safe_edit_message(
             query,
             build_services_message(),
@@ -259,12 +205,296 @@ async def service_restart_callback(
         )
         return
 
-    if not query.data.startswith(
-        "service_restart:"
-    ):
+    if action == "service_restart_menu":
+        services = load_services()
+
+        if not services:
+            message = (
+                "🔧 ПЕРЕЗАПУСК СЕРВИСА\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Список сервисов пуст."
+            )
+        else:
+            message = (
+                "🔧 ПЕРЕЗАПУСК СЕРВИСА\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Выберите сервис:"
+            )
+
+        await safe_edit_message(
+            query,
+            message,
+            service_restart_keyboard(),
+        )
         return
 
-    service = query.data.split(
+    if action.startswith("service_restart:"):
+        await restart_service_callback(
+            query,
+        )
+        return
+
+    if action == "menu_network":
+        await safe_edit_message(
+            query,
+            build_internet_message(),
+            network_keyboard(),
+        )
+        return
+
+    if action == "network_stats":
+        await safe_edit_message(
+            query,
+            (
+                "🌐 СТАТИСТИКА СЕТИ\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Этот раздел подключим следующим этапом."
+            ),
+            back_keyboard("menu_network"),
+        )
+        return
+
+    if action == "menu_vless":
+        await safe_edit_message(
+            query,
+            (
+                "🔐 VLESS\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Статус VLESS и текущий ping\n"
+                "подключим следующим этапом."
+            ),
+            vless_keyboard(),
+        )
+        return
+
+    if action == "menu_notifications":
+        await safe_edit_message(
+            query,
+            (
+                "🔔 УВЕДОМЛЕНИЯ\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Настройки уведомлений."
+            ),
+            notifications_keyboard(),
+        )
+        return
+
+    if action == "menu_history":
+        await safe_edit_message(
+            query,
+            (
+                "📜 ИСТОРИЯ СОБЫТИЙ\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "История событий будет подключена\n"
+                "следующим этапом."
+            ),
+            history_keyboard(),
+        )
+        return
+
+    if action == "history_clear":
+        await safe_edit_message(
+            query,
+            (
+                "📜 ИСТОРИЯ СОБЫТИЙ\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "История пока пуста."
+            ),
+            history_keyboard(),
+        )
+        return
+
+    if action == "menu_settings":
+        await show_settings(query)
+        return
+
+    if action == "settings_back":
+        previous = context.user_data.get(
+            "settings_previous",
+            "menu_settings",
+        )
+
+        if previous == "menu_vless":
+            await safe_edit_message(
+                query,
+                (
+                    "🔐 VLESS\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
+                    "Статус VLESS и текущий ping\n"
+                    "подключим следующим этапом."
+                ),
+                vless_keyboard(),
+            )
+            return
+
+        if previous == "menu_notifications":
+            await safe_edit_message(
+                query,
+                (
+                    "🔔 УВЕДОМЛЕНИЯ\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
+                    "Настройки уведомлений."
+                ),
+                notifications_keyboard(),
+            )
+            return
+
+        await show_settings(query)
+        return
+
+    if action == "settings_network":
+        context.user_data["settings_previous"] = (
+            "menu_settings"
+        )
+
+        await safe_edit_message(
+            query,
+            build_network_settings_message(),
+            network_settings_keyboard(),
+        )
+        return
+
+    if action == "settings_vless":
+        context.user_data["settings_previous"] = (
+            "menu_vless"
+        )
+
+        await safe_edit_message(
+            query,
+            build_network_settings_message(),
+            network_settings_keyboard(),
+        )
+        return
+
+    if action == "settings_notifications":
+        context.user_data["settings_previous"] = (
+            "menu_notifications"
+        )
+
+        await safe_edit_message(
+            query,
+            (
+                "🔔 УВЕДОМЛЕНИЯ\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Настройки уведомлений\n"
+                "подключим следующим этапом."
+            ),
+            back_keyboard("settings_back"),
+        )
+        return
+
+    if action == "settings_monitoring":
+        context.user_data["settings_previous"] = (
+            "menu_settings"
+        )
+
+        await safe_edit_message(
+            query,
+            (
+                "📊 МОНИТОРИНГ\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Настройки мониторинга\n"
+                "подключим следующим этапом."
+            ),
+            back_keyboard("settings_back"),
+        )
+        return
+
+    if action == "settings_system":
+        context.user_data["settings_previous"] = (
+            "menu_settings"
+        )
+
+        await safe_edit_message(
+            query,
+            (
+                "⚡ СИСТЕМА\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Управление сервером."
+            ),
+            system_settings_keyboard(),
+        )
+        return
+
+    if action == "system_reboot_confirm":
+        await safe_edit_message(
+            query,
+            (
+                "⚠️ ПЕРЕЗАПУСК СЕРВЕРА\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Вы действительно хотите "
+                "перезапустить сервер?"
+            ),
+            reboot_confirm_keyboard(),
+        )
+        return
+
+    if action == "system_reboot":
+        await safe_edit_message(
+            query,
+            (
+                "🔄 ПЕРЕЗАПУСК СЕРВЕРА\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Сервер будет перезапущен."
+            ),
+        )
+
+        subprocess.Popen(
+            ["sudo", "systemctl", "reboot"]
+        )
+        return
+
+    if action == "network_ping":
+        context.user_data["setting_input"] = "ping"
+
+        await safe_edit_message(
+            query,
+            build_input_message("ping"),
+            cancel_input_keyboard(),
+        )
+        return
+
+    if action == "network_interval":
+        context.user_data["setting_input"] = "interval"
+
+        await safe_edit_message(
+            query,
+            build_input_message("interval"),
+            cancel_input_keyboard(),
+        )
+        return
+
+    if action == "network_failures":
+        context.user_data["setting_input"] = "failures"
+
+        await safe_edit_message(
+            query,
+            build_input_message("failures"),
+            cancel_input_keyboard(),
+        )
+        return
+
+    if action == "network_cancel":
+        context.user_data.pop(
+            "setting_input",
+            None,
+        )
+
+        await safe_edit_message(
+            query,
+            build_network_settings_message(),
+            network_settings_keyboard(),
+        )
+        return
+
+
+async def restart_service_callback(query):
+    data = query.data
+
+    if data == "service_restart_menu":
+        return
+
+    service = data.split(
         ":",
         1,
     )[1]

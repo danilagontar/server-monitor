@@ -6,57 +6,59 @@ from telegram import (
 from src.services.services import load_services
 
 
-def stats_keyboard():
+def main_keyboard():
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "1 час",
-                callback_data="stats_1",
+                "📊 Состояние",
+                callback_data="menu_status",
             ),
             InlineKeyboardButton(
-                "6 часов",
-                callback_data="stats_6",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                "24 часа",
-                callback_data="stats_24",
-            ),
-            InlineKeyboardButton(
-                "7 дней",
-                callback_data="stats_168",
-            ),
-        ],
-    ])
-
-
-def system_keyboard():
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                "🐳 Docker",
-                callback_data="system_docker",
-            ),
-            InlineKeyboardButton(
-                "⚙️ Службы",
-                callback_data="system_services",
+                "📈 Статистика",
+                callback_data="menu_stats",
             ),
         ],
         [
             InlineKeyboardButton(
-                "🌐 Интернет",
-                callback_data="system_internet",
+                "🖥 Управление",
+                callback_data="menu_management",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🌐 Сеть",
+                callback_data="menu_network",
             ),
             InlineKeyboardButton(
-                "📊 Процессы",
-                callback_data="system_processes",
+                "🔐 VLESS",
+                callback_data="menu_vless",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🔔 Уведомления",
+                callback_data="menu_notifications",
+            ),
+            InlineKeyboardButton(
+                "📜 История",
+                callback_data="menu_history",
             ),
         ],
         [
             InlineKeyboardButton(
                 "⚙️ Настройки",
-                callback_data="system_settings",
+                callback_data="menu_settings",
+            ),
+        ],
+    ])
+
+
+def back_keyboard(callback_data="main_menu"):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data=callback_data,
             ),
         ],
     ])
@@ -70,31 +72,107 @@ def status_keyboard():
                 callback_data="status_refresh",
             ),
         ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="main_menu",
+            ),
+        ],
     ])
 
 
-def process_keyboard():
+def stats_keyboard(active_hours=1):
+    periods = [
+        (1, "1ч"),
+        (6, "6ч"),
+        (24, "24ч"),
+        (168, "7д"),
+    ]
+
+    buttons = []
+
+    row = []
+
+    for hours, title in periods:
+        if hours == active_hours:
+            title = f"✅ {title}"
+
+        row.append(
+            InlineKeyboardButton(
+                title,
+                callback_data=f"stats_{hours}",
+            )
+        )
+
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+
+    if row:
+        buttons.append(row)
+
+    buttons.append([
+        InlineKeyboardButton(
+            "⬅️ Назад",
+            callback_data="main_menu",
+        ),
+    ])
+
+    return InlineKeyboardMarkup(buttons)
+
+
+def management_keyboard():
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "⚡ Топ CPU",
-                callback_data="processes_cpu",
+                "📊 Процессы",
+                callback_data="management_processes",
             ),
             InlineKeyboardButton(
-                "🧠 Топ RAM",
-                callback_data="processes_ram",
+                "⚙️ Сервисы",
+                callback_data="management_services",
             ),
         ],
         [
             InlineKeyboardButton(
-                "🔎 Сервисы и боты",
-                callback_data="processes_monitored",
+                "🐳 Docker",
+                callback_data="management_docker",
             ),
         ],
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_menu",
+                callback_data="main_menu",
+            ),
+        ],
+    ])
+
+
+def process_keyboard(sort_by="cpu"):
+    cpu_title = "✅ CPU" if sort_by == "cpu" else "⚡ CPU"
+    ram_title = "✅ RAM" if sort_by == "ram" else "🧠 RAM"
+
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                cpu_title,
+                callback_data="processes_cpu",
+            ),
+            InlineKeyboardButton(
+                ram_title,
+                callback_data="processes_ram",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🔄 Обновить",
+                callback_data=f"processes_{sort_by}",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="management_menu",
             ),
         ],
     ])
@@ -105,13 +183,13 @@ def docker_keyboard():
         [
             InlineKeyboardButton(
                 "🔄 Обновить",
-                callback_data="system_docker",
+                callback_data="management_docker",
             ),
         ],
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_menu",
+                callback_data="management_menu",
             ),
         ],
     ])
@@ -122,7 +200,7 @@ def services_keyboard():
         [
             InlineKeyboardButton(
                 "🔄 Обновить",
-                callback_data="system_services",
+                callback_data="management_services",
             ),
         ],
         [
@@ -134,7 +212,7 @@ def services_keyboard():
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_menu",
+                callback_data="management_menu",
             ),
         ],
     ])
@@ -156,88 +234,94 @@ def service_restart_keyboard():
     buttons.append([
         InlineKeyboardButton(
             "⬅️ Назад",
-            callback_data="system_services",
+            callback_data="management_services",
         ),
     ])
 
     return InlineKeyboardMarkup(buttons)
 
 
-def internet_keyboard():
+def network_keyboard():
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
                 "🔄 Обновить",
-                callback_data="system_internet",
+                callback_data="menu_network",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "📊 Статистика",
+                callback_data="network_stats",
             ),
         ],
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_menu",
+                callback_data="main_menu",
             ),
         ],
     ])
 
 
-def process_cpu_keyboard():
+def vless_keyboard():
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
                 "🔄 Обновить",
-                callback_data="processes_cpu",
+                callback_data="menu_vless",
             ),
         ],
         [
             InlineKeyboardButton(
-                "🧠 Топ RAM",
-                callback_data="processes_ram",
+                "⚙️ Настройки",
+                callback_data="settings_vless",
             ),
         ],
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_processes",
+                callback_data="main_menu",
             ),
         ],
     ])
 
 
-def process_ram_keyboard():
+def notifications_keyboard():
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "🔄 Обновить",
-                callback_data="processes_ram",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                "⚡ Топ CPU",
-                callback_data="processes_cpu",
+                "⚙️ Настройки уведомлений",
+                callback_data="settings_notifications",
             ),
         ],
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_processes",
+                callback_data="main_menu",
             ),
         ],
     ])
 
 
-def monitored_processes_keyboard():
+def history_keyboard():
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
                 "🔄 Обновить",
-                callback_data="processes_monitored",
+                callback_data="menu_history",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "🗑 Очистить",
+                callback_data="history_clear",
             ),
         ],
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_processes",
+                callback_data="main_menu",
             ),
         ],
     ])
@@ -247,14 +331,30 @@ def settings_keyboard():
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "🌐 Настройки сети",
+                "🌐 Сеть",
                 callback_data="settings_network",
+            ),
+            InlineKeyboardButton(
+                "🔔 Уведомления",
+                callback_data="settings_notifications",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "📊 Мониторинг",
+                callback_data="settings_monitoring",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⚡ Система",
+                callback_data="settings_system",
             ),
         ],
         [
             InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_menu",
+                callback_data="main_menu",
             ),
         ],
     ])
@@ -282,14 +382,8 @@ def network_settings_keyboard():
         ],
         [
             InlineKeyboardButton(
-                "🔐 Вкл/выкл VLESS",
-                callback_data="network_toggle",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
                 "⬅️ Назад",
-                callback_data="system_settings",
+                callback_data="settings_back",
             ),
         ],
     ])
@@ -301,6 +395,38 @@ def cancel_input_keyboard():
             InlineKeyboardButton(
                 "❌ Отмена",
                 callback_data="network_cancel",
+            ),
+        ],
+    ])
+
+
+def system_settings_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🔄 Перезапустить сервер",
+                callback_data="system_reboot_confirm",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Назад",
+                callback_data="settings_back",
+            ),
+        ],
+    ])
+
+
+def reboot_confirm_keyboard():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "✅ Да, перезапустить",
+                callback_data="system_reboot",
+            ),
+            InlineKeyboardButton(
+                "❌ Отмена",
+                callback_data="settings_system",
             ),
         ],
     ])
