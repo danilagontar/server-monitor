@@ -1,263 +1,475 @@
+import platform
+import socket
+import subprocess
+import time
 from datetime import datetime
 
-from src.monitoring.vless import get_vless_state
-from src.services.docker import get_docker_state
-from src.services.services import get_services_state
-from src.services.settings import load_settings
+import psutil
+import requests
+
+from src.config import BOT_TOKEN, PROXY_URL
+from src.services.services import load_services
 
 
-_vless_monitor_state = {
-    "bad_count": 0,
-    "was_bad": False,
-    "state": None,
-}
+def get_uptime():
+    uptime = time.time() - psutil.boot_time()
+
+    days = int(uptime // 86400)
+    hours = int((uptime % 86400) // 3600)
+    minutes = int((uptime % 3600) // 60)
+
+    return f"{days}d {hours}h {minutes}m"
 
 
-def get_vless_monitor_state():
+def get_cpu_temperature():
+    try:
+        temperatures = psutil.sensors_temperatures()
+
+        if not temperatures:
+            return None
+
+        preferred = [
+            "coretemp",
+            "k10temp",
+            "cpu_thermal",
+            "cpu-thermal",
+            "acpitz",
+        ]
+
+        for name in preferred:
+            entries = temperatures.get(name)
+
+            if entries:
+                values = [
+                    entry.current
+                    for entry in entries
+                    if entry.current is not None
+                ]
+
+                if values:
+                    return max(values)
+
+        for entries in temperatures.values():
+            values = [
+                entry.current
+                for entry in entries
+                if entry.current is not None
+            ]
+
+            if values:
+                return max(values)
+
+    except Exception:
+        return None
+
+    return None
+
+
+def get_memory_usage():
+    memory = psutil.virtual_memory()
+
     return {
-        "bad_count": _vless_monitor_state["bad_count"],
-        "was_bad": _vless_monitor_state["was_bad"],
-        "state": _vless_monitor_state["state"],
+        "used": memory.used,
+        "total": memory.total,
+        "percent": memory.percent,
     }
 
 
-class ServiceMonitor:
-    def __init__(self):
-        self.previous_services = None
-        self.previous_docker = None
-        self.previous_vless = None
+def get_disk_usage():
+    disk = psutil.disk_usage("/")
 
-        self.vless_bad_count = 0
-        self.vless_was_bad = False
+    return {
+        "used": disk.used,
+        "total": disk.total,
+        "percent": disk.percent,
+    }
 
-    def initialize(self):
-        self.previous_services = get_services_state()
-        self.previous_docker = get_docker_state()
 
-        vless = get_vless_state()
-        self.previous_vless = vless
+def get_processes(limit=10):
+    processes = []
+    process_objects = []
 
-        if vless["high_ping"]:
-            self.vless_bad_count = 1
-        else:
-            self.vless_bad_count = 0
+    for process in psutil.process_iter(
+        [
+            "pid",
+            "name",
+            "cmdline",
+            "memory_percent",
+        ],
+    ):
+        try:
+            process.cpu_percent(None)
+            process_objects.append(process)
 
-        _update_vless_monitor_state(
-            self,
-            vless,
-        )
-
-    def check_services(self):
-        settings = load_settings()
-
-        current = get_services_state()
-        events = []
-
-        if self.previous_services is None:
-            self.previous_services = current
-            return events
-
-        if settings["alerts"]["services"]:
-            for service, is_running in current.items():
-                previous = self.previous_services.get(
-                    service
-                )
-
-                if previous is True and not is_running:
-                    events.append({
-                        "type": "service_down",
-                        "name": service,
-                    })
-
-                elif previous is False and is_running:
-                    events.append({
-                        "type": "service_up",
-                        "name": service,
-                    })
-
-        self.previous_services = current
-
-        return events
-
-    def check_docker(self):
-        settings = load_settings()
-
-        current = get_docker_state()
-        events = []
-
-        if self.previous_docker is None:
-            self.previous_docker = current
-            return events
-
-        if settings["alerts"]["docker"]:
-            for name, is_running in current.items():
-                previous = self.previous_docker.get(
-                    name
-                )
-
-                if previous is True and not is_running:
-                    events.append({
-                        "type": "docker_down",
-                        "name": name,
-                    })
-
-                elif previous is False and is_running:
-                    events.append({
-                        "type": "docker_up",
-                        "name": name,
-                    })
-
-            for name, previous in self.previous_docker.items():
-                if name not in current and previous:
-                    events.append({
-                        "type": "docker_down",
-                        "name": name,
-                    })
-
-        self.previous_docker = current
-
-        return events
-
-    def check_vless(self):
-        settings = load_settings()
-        vless = get_vless_state()
-
-        if not settings["alerts"]["vless"]:
-            self.vless_bad_count = 0
-            self.vless_was_bad = False
-            self.previous_vless = vless
-
-            _update_vless_monitor_state(
-                self,
-                vless,
-            )
-
-            return []
-
-        threshold = settings["vless"]["ping_threshold"]
-        required_failures = settings["vless"]["required_failures"]
-
-        events = []
-
-        if vless["high_ping"]:
-            self.vless_bad_count += 1
-        else:
-            self.vless_bad_count = 0
-
-        if self.vless_bad_count >= required_failures:
-            if not self.vless_was_bad:
-                events.append({
-                    "type": "vless_bad",
-                    "ping": vless["ping"],
-                    "threshold": threshold,
-                    "working": vless["working"],
-                    "error": vless["error"],
-                })
-
-                self.vless_was_bad = True
-
-        elif (
-            self.vless_was_bad
-            and not vless["high_ping"]
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            psutil.ZombieProcess,
         ):
-            events.append({
-                "type": "vless_recovered",
-                "ping": vless["ping"],
-                "threshold": threshold,
+            continue
+
+    time.sleep(1)
+
+    for process in process_objects:
+        try:
+            info = process.info
+            cpu = process.cpu_percent(None)
+
+            processes.append({
+                "pid": info["pid"],
+                "name": info["name"] or "unknown",
+                "cmdline": " ".join(
+                    info["cmdline"] or []
+                ),
+                "cpu": cpu,
+                "memory": info["memory_percent"] or 0,
             })
 
-            self.vless_was_bad = False
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            psutil.ZombieProcess,
+        ):
+            continue
 
-        self.previous_vless = vless
+    cpu_processes = sorted(
+        processes,
+        key=lambda process: process["cpu"],
+        reverse=True,
+    )
 
-        _update_vless_monitor_state(
-            self,
-            vless,
+    ram_processes = sorted(
+        processes,
+        key=lambda process: process["memory"],
+        reverse=True,
+    )
+
+    total_cpu = sum(
+        process["cpu"]
+        for process in processes
+    )
+
+    cpu_count = psutil.cpu_count() or 1
+
+    total_cpu_percent = min(
+        total_cpu / cpu_count,
+        100,
+    )
+
+    return {
+        "all": processes,
+        "cpu": cpu_processes[:limit],
+        "memory": ram_processes[:limit],
+        "total_cpu": total_cpu_percent,
+    }
+
+
+def get_server_status():
+    memory = get_memory_usage()
+    disk = get_disk_usage()
+    processes = get_processes()
+
+    return {
+        "hostname": platform.node(),
+        "cpu": processes["total_cpu"],
+        "temperature": get_cpu_temperature(),
+        "memory": memory,
+        "disk": disk,
+        "uptime": get_uptime(),
+    }
+
+
+def get_docker_status():
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "-a",
+                "--format",
+                "{{.Names}}|{{.Status}}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
         )
 
-        return events
+        if result.returncode != 0:
+            return {
+                "available": False,
+                "error": result.stderr.strip(),
+                "containers": [],
+            }
 
-    def check_all(self):
-        events = []
+        containers = []
 
-        events.extend(
-            self.check_services()
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+
+            name, status = line.split("|", 1)
+
+            containers.append({
+                "name": name,
+                "status": status,
+            })
+
+        return {
+            "available": True,
+            "error": "",
+            "containers": containers,
+        }
+
+    except FileNotFoundError:
+        return {
+            "available": False,
+            "error": "Docker не установлен",
+            "containers": [],
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "available": False,
+            "error": "Docker не отвечает",
+            "containers": [],
+        }
+
+
+def get_service_status(service):
+    try:
+        result = subprocess.run(
+            [
+                "systemctl",
+                "show",
+                service,
+                "--property=ActiveState",
+                "--property=ActiveEnterTimestamp",
+                "--value",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
         )
-        events.extend(
-            self.check_docker()
+
+        lines = result.stdout.strip().splitlines()
+
+        if len(lines) < 2:
+            return {
+                "status": "unknown",
+                "started_at": None,
+            }
+
+        return {
+            "status": lines[0],
+            "started_at": lines[1],
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "timeout",
+            "started_at": None,
+        }
+
+    except Exception:
+        return {
+            "status": "unknown",
+            "started_at": None,
+        }
+
+
+def get_service_uptime(started_at):
+    if not started_at:
+        return None
+
+    try:
+        parts = started_at.split()
+
+        if len(parts) < 3:
+            return None
+
+        started = datetime.strptime(
+            f"{parts[1]} {parts[2]}",
+            "%Y-%m-%d %H:%M:%S",
         )
-        events.extend(
-            self.check_vless()
+
+        uptime = datetime.now() - started
+        total_seconds = int(
+            uptime.total_seconds()
         )
 
-        return events
+        if total_seconds < 0:
+            return None
+
+        days = total_seconds // 86400
+        hours = (total_seconds % 86400) // 3600
+        minutes = (total_seconds % 3600) // 60
+
+        if days > 0:
+            return f"Up {days}d {hours}h"
+
+        if hours > 0:
+            return f"Up {hours}h {minutes}m"
+
+        return f"Up {minutes}m"
+
+    except (ValueError, IndexError):
+        return None
 
 
-def _update_vless_monitor_state(
-    monitor,
-    state,
+def get_services_status():
+    services = []
+
+    for service in load_services():
+        data = get_service_status(service)
+
+        services.append({
+            "name": service,
+            "status": data["status"],
+            "uptime": get_service_uptime(
+                data["started_at"]
+            ),
+        })
+
+    return services
+
+
+def check_internet(
+    host="1.1.1.1",
+    port=443,
+    timeout=3,
 ):
-    _vless_monitor_state["bad_count"] = (
-        monitor.vless_bad_count
+    start = time.perf_counter()
+
+    try:
+        with socket.create_connection(
+            (host, port),
+            timeout=timeout,
+        ):
+            latency = (
+                time.perf_counter() - start
+            ) * 1000
+
+        return {
+            "available": True,
+            "latency": latency,
+        }
+
+    except OSError:
+        return {
+            "available": False,
+            "latency": None,
+        }
+
+
+def check_telegram_proxy():
+    if not PROXY_URL:
+        return {
+            "available": False,
+            "latency": None,
+            "error": "PROXY_URL не настроен",
+        }
+
+    if not BOT_TOKEN:
+        return {
+            "available": False,
+            "latency": None,
+            "error": "BOT_TOKEN не настроен",
+        }
+
+    url = (
+        "https://api.telegram.org/"
+        f"bot{BOT_TOKEN}/getMe"
     )
-    _vless_monitor_state["was_bad"] = (
-        monitor.vless_was_bad
-    )
-    _vless_monitor_state["state"] = state
 
+    proxies = {
+        "http": PROXY_URL,
+        "https": PROXY_URL,
+    }
 
-def format_event(event):
-    event_type = event["type"]
+    start = time.perf_counter()
 
-    if event_type == "service_down":
-        return (
-            "🚨 СЛУЖБА ОСТАНОВЛЕНА\n\n"
-            f"{event['name']}\n\n"
-            f"🕐 {datetime.now().strftime('%d.%m %H:%M:%S')}"
+    try:
+        response = requests.get(
+            url,
+            proxies=proxies,
+            timeout=10,
         )
 
-    if event_type == "service_up":
-        return (
-            "🟢 СЛУЖБА ВОССТАНОВЛЕНА\n\n"
-            f"{event['name']}\n\n"
-            "Сервис снова работает."
-        )
+        latency = (
+            time.perf_counter() - start
+        ) * 1000
 
-    if event_type == "docker_down":
-        return (
-            "🚨 DOCKER-КОНТЕЙНЕР ОСТАНОВЛЕН\n\n"
-            f"{event['name']}\n\n"
-            f"🕐 {datetime.now().strftime('%d.%m %H:%M:%S')}"
-        )
+        if response.status_code != 200:
+            return {
+                "available": False,
+                "latency": latency,
+                "error": f"HTTP {response.status_code}",
+            }
 
-    if event_type == "docker_up":
-        return (
-            "🟢 DOCKER-КОНТЕЙНЕР ВОССТАНОВЛЕН\n\n"
-            f"{event['name']}\n\n"
-            "Контейнер снова работает."
-        )
+        data = response.json()
 
-    if event_type == "vless_bad":
-        if event["working"]:
-            return (
-                "⚠️ VLESS → TELEGRAM\n\n"
-                "Высокая задержка Telegram API.\n\n"
-                f"📡 Ping: {event['ping']} ms\n"
-                f"📈 Порог: {event['threshold']} ms"
-            )
+        if not data.get("ok"):
+            return {
+                "available": False,
+                "latency": latency,
+                "error": "Telegram API вернул ошибку",
+            }
 
-        return (
-            "🔴 VLESS → TELEGRAM\n\n"
-            "Telegram API недоступен через прокси.\n\n"
-            f"Ошибка: {event['error']}"
-        )
+        return {
+            "available": True,
+            "latency": latency,
+            "error": "",
+        }
 
-    if event_type == "vless_recovered":
-        return (
-            "🟢 VLESS → TELEGRAM\n\n"
-            "Задержка восстановилась.\n\n"
-            f"📡 Ping: {event['ping']} ms\n"
-            f"📈 Порог: {event['threshold']} ms"
-        )
+    except requests.exceptions.ProxyError:
+        return {
+            "available": False,
+            "latency": None,
+            "error": "Ошибка подключения к SOCKS5/VLESS",
+        }
 
-    return None
+    except requests.exceptions.ConnectTimeout:
+        return {
+            "available": False,
+            "latency": None,
+            "error": "Таймаут подключения к Telegram",
+        }
+
+    except requests.exceptions.RequestException as error:
+        return {
+            "available": False,
+            "latency": None,
+            "error": str(error),
+        }
+
+
+def get_monitored_processes():
+    processes = get_processes()["all"]
+
+    keywords = [
+        "emias",
+        "tickets",
+        "python",
+        "xray",
+        "chromium",
+        "docker",
+        "telegram",
+    ]
+
+    found = []
+
+    for process in processes:
+        text = (
+            f"{process['name']} "
+            f"{process['cmdline']}"
+        ).lower()
+
+        if any(
+            keyword in text
+            for keyword in keywords
+        ):
+            found.append(process)
+
+    return found

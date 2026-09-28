@@ -92,7 +92,9 @@ def get_vless_state():
 
 
 def build_vless_message():
-    from src.monitoring.monitor import get_vless_monitor_state
+    from src.services.services import (
+        get_vless_monitor_state,
+    )
 
     settings = load_settings()
     state = get_vless_state()
@@ -106,12 +108,10 @@ def build_vless_message():
     else:
         status = "🔴 Недоступен"
 
-    ping = state["ping"]
-
-    if ping is None:
+    if state["ping"] is None:
         ping_text = "Нет ответа"
     else:
-        ping_text = f"{ping} ms"
+        ping_text = f"{state['ping']} ms"
 
     checked_at = state.get("checked_at")
 
