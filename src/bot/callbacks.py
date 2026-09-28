@@ -39,6 +39,7 @@ from src.bot.messages import (
     build_processes_ram_message,
     build_settings_message,
     build_network_settings_message,
+    build_history_message,
 )
 
 from src.monitoring.monitor import get_service_status
@@ -314,24 +315,19 @@ async def callback_handler(
     if action == "menu_history":
         await safe_edit_message(
             query,
-            (
-                "📜 ИСТОРИЯ СОБЫТИЙ\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                "История событий будет подключена\n"
-                "следующим этапом."
-            ),
+            build_history_message(),
             history_keyboard(),
         )
         return
 
     if action == "history_clear":
+        from src.services.events import clear_events
+
+        clear_events()
+
         await safe_edit_message(
             query,
-            (
-                "📜 ИСТОРИЯ СОБЫТИЙ\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                "История пока пуста."
-            ),
+            build_history_message(),
             history_keyboard(),
         )
         return

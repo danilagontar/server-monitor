@@ -15,6 +15,8 @@ from src.utils.utils import (
     progress_bar,
 )
 
+from src.services.events import get_events
+from datetime import datetime
 
 def section_header(icon, title):
     return (
@@ -363,3 +365,37 @@ def build_input_message(setting):
         )
 
     return "Введите значение:"
+def build_history_message():
+    events = get_events()
+
+    lines = [
+        section_header(
+            "📜",
+            "ИСТОРИЯ СОБЫТИЙ",
+        ),
+        "",
+    ]
+
+    if not events:
+        lines.append("Событий пока нет.")
+        return "\n".join(lines)
+
+    for event in events[:20]:
+        time_text = event.get("time", "")
+
+        try:
+            event_time = datetime.strptime(
+                time_text,
+                "%Y-%m-%d %H:%M:%S",
+            )
+            time_text = event_time.strftime(
+                "%H:%M"
+            )
+        except ValueError:
+            time_text = "—"
+
+        lines.append(
+            f"{time_text} {event.get('message', '')}"
+        )
+
+    return "\n".join(lines)
