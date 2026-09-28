@@ -64,7 +64,6 @@ def get_vless_state():
         return {
             "working": False,
             "ping": result["ping"],
-            "quality": "недоступен",
             "high_ping": True,
             "error": result["error"],
             "checked_at": datetime.now(),
@@ -72,19 +71,9 @@ def get_vless_state():
 
     ping = result["ping"]
 
-    if ping <= 300:
-        quality = "отличное"
-    elif ping <= 700:
-        quality = "хорошее"
-    elif ping <= threshold:
-        quality = "нормальное"
-    else:
-        quality = "плохое"
-
     return {
         "working": True,
         "ping": ping,
-        "quality": quality,
         "high_ping": ping > threshold,
         "error": None,
         "checked_at": datetime.now(),
