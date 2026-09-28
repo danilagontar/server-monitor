@@ -246,13 +246,7 @@ def network_keyboard():
         [
             InlineKeyboardButton(
                 "🔄 Обновить",
-                callback_data="menu_network",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                "📊 Статистика",
-                callback_data="network_stats",
+                callback_data="network_refresh",
             ),
         ],
         [

@@ -78,10 +78,10 @@ def collect_metrics():
 
 def collect_network_metrics(previous):
     counters = psutil.net_io_counters()
-
     timestamp = datetime.now().strftime(
         "%Y-%m-%d %H:%M:%S"
     )
+    current_time = time.monotonic()
 
     received = counters.bytes_recv
     sent = counters.bytes_sent
@@ -90,13 +90,20 @@ def collect_network_metrics(previous):
         rx_speed = 0
         tx_speed = 0
     else:
+        elapsed = current_time - previous["time"]
+
+        if elapsed <= 0:
+            elapsed = 1
+
         rx_speed = max(
             0,
-            received - previous["received"],
+            (received - previous["received"])
+            / elapsed,
         )
         tx_speed = max(
             0,
-            sent - previous["sent"],
+            (sent - previous["sent"])
+            / elapsed,
         )
 
     return {
@@ -105,6 +112,7 @@ def collect_network_metrics(previous):
         "sent": sent,
         "rx_speed": rx_speed,
         "tx_speed": tx_speed,
+        "time": current_time,
     }
 
 
@@ -154,6 +162,7 @@ def collect_loop():
 
     while True:
         metrics = collect_metrics()
+
         network_metrics = collect_network_metrics(
             previous_network
         )

@@ -38,6 +38,7 @@ from src.bot.messages import (
     build_network_settings_message,
 )
 from src.monitoring.monitor import get_service_status
+from src.monitoring.network import build_network_message
 from src.services.services import (
     restart_service,
     load_services,
@@ -225,22 +226,26 @@ async def callback_handler(
         return
 
     if action == "menu_network":
+        text = await asyncio.to_thread(
+            build_network_message
+        )
+
         await safe_edit_message(
             query,
-            build_internet_message(),
+            text,
             network_keyboard(),
         )
         return
 
-    if action == "network_stats":
+    if action == "network_refresh":
+        text = await asyncio.to_thread(
+            build_network_message
+        )
+
         await safe_edit_message(
             query,
-            (
-                "🌐 СТАТИСТИКА СЕТИ\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                "Этот раздел подключим следующим этапом."
-            ),
-            back_keyboard("menu_network"),
+            text,
+            network_keyboard(),
         )
         return
 
