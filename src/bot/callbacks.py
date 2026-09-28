@@ -316,14 +316,13 @@ async def callback_handler(
         )
 
         if previous == "menu_vless":
+            text = await asyncio.to_thread(
+                build_vless_message
+            )
+
             await safe_edit_message(
                 query,
-                (
-                    "🔐 VLESS\n"
-                    "━━━━━━━━━━━━━━━━━━\n\n"
-                    "Статус VLESS и текущий ping\n"
-                    "подключим следующим этапом."
-                ),
+                text,
                 vless_keyboard(),
             )
             return
@@ -363,7 +362,7 @@ async def callback_handler(
             ),
         )
         return
-    
+
     if action == "settings_network":
         context.user_data["settings_previous"] = (
             "menu_settings"
