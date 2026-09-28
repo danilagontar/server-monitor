@@ -206,6 +206,11 @@ def get_services_state():
 
 
 def restart_service(service):
+    print(
+        f"RESTART REQUEST: {service!r}",
+        flush=True,
+    )
+
     allowed_services = {
         "tickets-bot.service",
         "xray.service",
@@ -213,19 +218,37 @@ def restart_service(service):
     }
 
     if service not in allowed_services:
+        print(
+            f"RESTART DENIED: {service!r}",
+            flush=True,
+        )
         return False, "Сервис не разрешён"
 
+    command = [
+        "/usr/bin/sudo",
+        "-n",
+        "/usr/bin/systemctl",
+        "restart",
+        service,
+    ]
+
+    print(
+        f"RESTART COMMAND: {command!r}",
+        flush=True,
+    )
+
     result = subprocess.run(
-        [
-            "/usr/bin/sudo",
-            "-n",
-            "/usr/bin/systemctl",
-            "restart",
-            service,
-        ],
+        command,
         capture_output=True,
         text=True,
         timeout=30,
+    )
+
+    print(
+        f"RESTART RESULT: code={result.returncode} "
+        f"stdout={result.stdout!r} "
+        f"stderr={result.stderr!r}",
+        flush=True,
     )
 
     if result.returncode != 0:
