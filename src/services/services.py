@@ -82,6 +82,7 @@ def load_settings():
     merged = {
         "alerts": DEFAULT_SETTINGS["alerts"].copy(),
         "vless": DEFAULT_SETTINGS["vless"].copy(),
+        "system": DEFAULT_SETTINGS["system"].copy(),
         "monitor": DEFAULT_SETTINGS["monitor"].copy(),
     }
 
@@ -90,6 +91,9 @@ def load_settings():
     )
     merged["vless"].update(
         settings.get("vless", {})
+    )
+    merged["system"].update(
+        settings.get("system", {})
     )
     merged["monitor"].update(
         settings.get("monitor", {})
