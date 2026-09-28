@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 
 from src.config import CHAT_ID
 
@@ -54,6 +55,7 @@ async def service_monitor_loop(application):
                 f"Service monitor error: {error}",
                 flush=True,
             )
+            traceback.print_exc()
 
         settings = load_settings()
         interval = settings["monitor"]["interval"]
