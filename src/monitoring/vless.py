@@ -3,132 +3,135 @@ from datetime import datetime
 
 import requests
 
-
-SOCKS_PROXY = "socks5h://127.0.0.1:1080"
-TEST_URL = "https://www.google.com"
-DEFAULT_TIMEOUT = 10
-DEFAULT_LATENCY_THRESHOLD = 1000
-MAX_BAD_CHECKS = 3
+from src.config import PROXY_URL
+from src.services.settings import load_settings
 
 
-_state = {
-    "bad_checks": 0,
-    "last_check": None,
-    "status": "unknown",
-    "latency": None,
-}
+def check_telegram_proxy():
+    if not PROXY_URL:
+        return {
+            "working": False,
+            "ping": None,
+            "error": "PROXY_URL is not set",
+        }
 
+    url = "https://api.telegram.org"
 
-def check_vless(
-    timeout=DEFAULT_TIMEOUT,
-    latency_threshold=DEFAULT_LATENCY_THRESHOLD,
-):
-    proxies = {
-        "http": SOCKS_PROXY,
-        "https": SOCKS_PROXY,
-    }
-
-    started = time.monotonic()
+    start = time.monotonic()
 
     try:
         response = requests.get(
-            TEST_URL,
-            proxies=proxies,
-            timeout=timeout,
-            allow_redirects=True,
+            url,
+            proxies={
+                "http": PROXY_URL,
+                "https": PROXY_URL,
+            },
+            timeout=10,
         )
 
-        latency = round(
-            (time.monotonic() - started) * 1000
-        )
+        elapsed = (
+            time.monotonic() - start
+        ) * 1000
 
-        if response.status_code >= 400:
-            raise requests.RequestException(
-                f"HTTP {response.status_code}"
-            )
-
-        if latency > latency_threshold:
-            status = "warning"
-        else:
-            status = "working"
-
-        _state["bad_checks"] = 0
-        _state["status"] = status
-        _state["latency"] = latency
-        _state["last_check"] = datetime.now()
+        if response.status_code < 500:
+            return {
+                "working": True,
+                "ping": round(elapsed),
+                "error": None,
+            }
 
         return {
-            "status": status,
-            "latency": latency,
-            "bad_checks": 0,
-            "last_check": _state["last_check"],
+            "working": False,
+            "ping": round(elapsed),
+            "error": f"HTTP {response.status_code}",
         }
 
-    except (
-        requests.RequestException,
-        OSError,
-    ):
-        _state["bad_checks"] = min(
-            _state["bad_checks"] + 1,
-            MAX_BAD_CHECKS,
-        )
-        _state["status"] = "down"
-        _state["latency"] = None
-        _state["last_check"] = datetime.now()
-
+    except requests.RequestException as error:
         return {
-            "status": "down",
-            "latency": None,
-            "bad_checks": _state["bad_checks"],
-            "last_check": _state["last_check"],
+            "working": False,
+            "ping": None,
+            "error": str(error),
         }
 
 
-def get_vless_status(
-    timeout=DEFAULT_TIMEOUT,
-    latency_threshold=DEFAULT_LATENCY_THRESHOLD,
-):
-    return check_vless(
-        timeout=timeout,
-        latency_threshold=latency_threshold,
-    )
+def get_vless_state():
+    result = check_telegram_proxy()
+    settings = load_settings()
 
+    threshold = settings["vless"]["ping_threshold"]
 
-def build_vless_message(
-    timeout=DEFAULT_TIMEOUT,
-    latency_threshold=DEFAULT_LATENCY_THRESHOLD,
-):
-    result = get_vless_status(
-        timeout=timeout,
-        latency_threshold=latency_threshold,
-    )
+    if not result["working"]:
+        return {
+            "working": False,
+            "ping": result["ping"],
+            "quality": "недоступен",
+            "high_ping": True,
+            "error": result["error"],
+            "checked_at": datetime.now(),
+        }
 
-    if result["status"] == "working":
-        status_text = "🟢 Работает"
-    elif result["status"] == "warning":
-        status_text = "🟡 Проблемы"
+    ping = result["ping"]
+
+    if ping <= 300:
+        quality = "отличное"
+    elif ping <= 700:
+        quality = "хорошее"
+    elif ping <= threshold:
+        quality = "нормальное"
     else:
-        status_text = "🔴 Недоступен"
+        quality = "плохое"
 
-    if result["latency"] is None:
-        latency_text = "—"
-    else:
-        latency_text = f"{result['latency']} ms"
+    return {
+        "working": True,
+        "ping": ping,
+        "quality": quality,
+        "high_ping": ping > threshold,
+        "error": None,
+        "checked_at": datetime.now(),
+    }
 
-    if result["last_check"] is None:
-        checked_text = "—"
+
+def build_vless_message():
+    from src.monitoring.monitor import get_vless_monitor_state
+
+    settings = load_settings()
+    state = get_vless_state()
+    monitor_state = get_vless_monitor_state()
+
+    threshold = settings["vless"]["ping_threshold"]
+    required_failures = settings["vless"]["required_failures"]
+
+    if state["working"]:
+        status = "🟢 Работает"
     else:
-        checked_text = result["last_check"].strftime(
+        status = "🔴 Недоступен"
+
+    ping = state["ping"]
+
+    if ping is None:
+        ping_text = "Нет ответа"
+    else:
+        ping_text = f"{ping} ms"
+
+    checked_at = state.get("checked_at")
+
+    if checked_at:
+        checked_text = checked_at.strftime(
             "%H:%M:%S"
         )
+    else:
+        checked_text = "—"
+
+    bad_count = monitor_state["bad_count"]
 
     return (
         "🔐 VLESS\n"
         "━━━━━━━━━━━━━━━━━━\n\n"
-        f"Статус: {status_text}\n\n"
-        f"Latency: {latency_text}\n"
-        f"Порог: {latency_threshold} ms\n\n"
+        f"Статус: {status}\n\n"
+        f"Текущая: {ping_text}\n"
+        f"Качество: {state['quality']}\n"
+        f"Порог: {threshold} ms\n\n"
         f"Плохих проверок: "
-        f"{result['bad_checks']} / {MAX_BAD_CHECKS}\n\n"
+        f"{bad_count} / {required_failures}\n\n"
         f"🕐 Проверено: {checked_text}"
     )
