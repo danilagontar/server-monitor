@@ -10,7 +10,6 @@ from src.utils.utils import (
     format_period,
 )
 
-
 BASE_DIR = os.path.dirname(
     os.path.dirname(
         os.path.dirname(
@@ -113,22 +112,37 @@ def calculate_network_stats(metrics):
             "tx_avg": 0,
         }
 
-    received = max(
-        0,
-        metrics[-1]["received"]
-        - metrics[0]["received"],
-    )
+    received = 0
+    sent = 0
+    elapsed = 0
 
-    sent = max(
-        0,
-        metrics[-1]["sent"]
-        - metrics[0]["sent"],
-    )
+    for previous, current in zip(
+        metrics,
+        metrics[1:],
+    ):
+        received_diff = (
+            current["received"]
+            - previous["received"]
+        )
 
-    elapsed = (
-        metrics[-1]["timestamp"]
-        - metrics[0]["timestamp"]
-    ).total_seconds()
+        sent_diff = (
+            current["sent"]
+            - previous["sent"]
+        )
+
+        if received_diff >= 0:
+            received += received_diff
+
+        if sent_diff >= 0:
+            sent += sent_diff
+
+        time_diff = (
+            current["timestamp"]
+            - previous["timestamp"]
+        ).total_seconds()
+
+        if time_diff > 0:
+            elapsed += time_diff
 
     if elapsed <= 0:
         elapsed = 1
