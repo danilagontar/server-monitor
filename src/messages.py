@@ -16,6 +16,13 @@ from utils import (
 )
 
 
+def section_header(icon, title):
+    return (
+        f"{icon} {title}\n"
+        "━━━━━━━━━━━━━━━━━━"
+    )
+
+
 def build_status_message():
     server = get_server_status()
 
@@ -27,22 +34,19 @@ def build_status_message():
     disk_percent = disk["percent"]
 
     return (
-        "🖥 СЕРВЕР\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        f"🟢 {server['hostname']}\n\n"
-        "⚡ CPU\n"
-        f"{progress_bar(cpu)} {cpu:.1f}%\n\n"
-        "🧠 RAM\n"
-        f"{progress_bar(ram)} {ram:.1f}%\n"
+        f"{section_header('📊', 'СТАТУС СЕРВЕРА')}\n\n"
+        f"🖥 Hostname: {server['hostname']}\n\n"
+        f"⚡ CPU: {cpu:.1f}%\n"
+        f"{progress_bar(cpu)}\n\n"
+        f"🧠 RAM: {ram:.1f}%\n"
+        f"{progress_bar(ram)}\n"
         f"{format_bytes(memory['used'])} / "
         f"{format_bytes(memory['total'])}\n\n"
-        "💾 DISK\n"
-        f"{progress_bar(disk_percent)} "
-        f"{disk_percent:.1f}%\n"
+        f"💾 Диск: {disk_percent:.1f}%\n"
+        f"{progress_bar(disk_percent)}\n"
         f"{format_bytes(disk['used'])} / "
         f"{format_bytes(disk['total'])}\n\n"
-        "⏱ Uptime\n"
-        f"{server['uptime']}\n\n"
+        f"⏱ Uptime: {server['uptime']}\n\n"
         f"🕐 Обновлено: {current_time()}"
     )
 
@@ -51,14 +55,12 @@ def build_docker_message():
     docker = get_docker_status()
 
     lines = [
-        "🐳 DOCKER",
-        "━━━━━━━━━━━━━━━━━━",
-        current_time(),
+        section_header("🐳", "DOCKER"),
         "",
     ]
 
     if not docker["available"]:
-        lines.append(f"❌ {docker['error']}")
+        lines.append(f"🔴 {docker['error']}")
         return "\n".join(lines)
 
     containers = docker["containers"]
@@ -68,7 +70,7 @@ def build_docker_message():
         return "\n".join(lines)
 
     lines.append(
-        f"Найдено контейнеров: {len(containers)}"
+        f"📦 Контейнеров: {len(containers)}"
     )
     lines.append("")
 
@@ -80,21 +82,20 @@ def build_docker_message():
         else:
             icon = "🔴"
 
-        lines.append(
-            f"{icon} {container['name']}\n"
-            f"   {status}"
-        )
+        lines.extend([
+            f"{icon} {container['name']}",
+            f"   {status}",
+            "",
+        ])
 
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip()
 
 
 def build_services_message():
     services = get_services_status()
 
     lines = [
-        "⚙️ СЛУЖБЫ",
-        "━━━━━━━━━━━━━━━━━━",
-        current_time(),
+        section_header("⚙️", "СЕРВИСЫ"),
         "",
     ]
 
@@ -114,11 +115,14 @@ def build_services_message():
             "",
         )
 
-        lines.append(
-            f"{icon} {name} - {status}    {uptime}"
-        )
+        lines.extend([
+            f"{icon} {name}",
+            f"   Статус: {status}",
+            f"   Uptime: {uptime}",
+            "",
+        ])
 
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip()
 
 
 def build_internet_message():
@@ -126,42 +130,42 @@ def build_internet_message():
     telegram = check_telegram_proxy()
 
     lines = [
-        "🌐 СЕТЬ",
-        "━━━━━━━━━━━━━━━━━━",
-        current_time(),
+        section_header("🌐", "СЕТЬ"),
         "",
     ]
 
     if internet["available"]:
-        lines.append(
-            "🟢 Интернет: работает\n"
-            f"   TCP latency: "
-            f"{internet['latency']:.0f} ms"
-        )
+        lines.extend([
+            "🌐 Интернет",
+            "🟢 Доступен",
+            f"📡 TCP latency: "
+            f"{internet['latency']:.0f} ms",
+            "",
+        ])
     else:
-        lines.append(
-            "🔴 Интернет: недоступен"
-        )
+        lines.extend([
+            "🌐 Интернет",
+            "🔴 Недоступен",
+            "",
+        ])
 
-    lines.extend([
-        "",
-        "🔐 VLESS → Telegram",
-    ])
+    lines.append("🔐 VLESS → Telegram")
+    lines.append("")
 
     if telegram["available"]:
         latency = telegram["latency"]
 
         if latency < 500:
-            quality = "хорошее"
+            quality = "Хорошее"
         elif latency < 1500:
-            quality = "нормальное"
+            quality = "Нормальное"
         else:
-            quality = "медленное"
+            quality = "Медленное"
 
         lines.extend([
             "🟢 Прокси работает",
-            f"   Telegram API: {latency:.0f} ms",
-            f"   Качество: {quality}",
+            f"📡 Telegram API: {latency:.0f} ms",
+            f"📊 Качество: {quality}",
             "",
             "Telegram API успешно отвечает",
             "через SOCKS5 → Xray/VLESS.",
@@ -169,7 +173,7 @@ def build_internet_message():
     else:
         lines.extend([
             "🔴 Прокси не работает",
-            f"   Причина: {telegram['error']}",
+            f"Причина: {telegram['error']}",
             "",
             "Бот может не отправить сообщения",
             "в Telegram через этот прокси.",
@@ -182,12 +186,13 @@ def build_processes_cpu_message():
     processes = get_processes()["cpu"]
 
     lines = [
-        "⚡ ТОП ПРОЦЕССОВ ПО CPU",
-        "━━━━━━━━━━━━━━━━━━",
-        current_time(),
+        section_header(
+            "⚡",
+            "ТОП ПРОЦЕССОВ ПО CPU",
+        ),
         "",
-        "   PID    CPU    RAM   PROCESS",
-        "",
+        "PID      CPU     RAM    PROCESS",
+        "──────────────────────────────",
     ]
 
     for process in processes:
@@ -200,12 +205,13 @@ def build_processes_ram_message():
     processes = get_processes()["memory"]
 
     lines = [
-        "🧠 ТОП ПРОЦЕССОВ ПО RAM",
-        "━━━━━━━━━━━━━━━━━━",
-        current_time(),
+        section_header(
+            "🧠",
+            "ТОП ПРОЦЕССОВ ПО RAM",
+        ),
         "",
-        "   PID    CPU    RAM   PROCESS",
-        "",
+        "PID      CPU     RAM    PROCESS",
+        "──────────────────────────────",
     ]
 
     for process in processes:
@@ -218,9 +224,10 @@ def build_monitored_processes_message():
     processes = get_monitored_processes()
 
     lines = [
-        "🔎 СЕРВИСЫ И БОТЫ",
-        "━━━━━━━━━━━━━━━━━━",
-        current_time(),
+        section_header(
+            "🔎",
+            "СЕРВИСЫ И БОТЫ",
+        ),
         "",
     ]
 
@@ -236,20 +243,20 @@ def build_monitored_processes_message():
         if len(name) > 25:
             name = name[:22] + "..."
 
-        lines.append(
-            f"🟢 {name}\n"
-            f"   PID: {process['pid']}\n"
-            f"   CPU: {process['cpu']:.1f}%\n"
-            f"   RAM: {process['memory']:.1f}%"
-        )
+        lines.extend([
+            f"🟢 {name}",
+            f"   PID: {process['pid']}",
+            f"   CPU: {process['cpu']:.1f}%",
+            f"   RAM: {process['memory']:.1f}%",
+            "",
+        ])
 
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip()
 
 
 def build_settings_message():
     return (
-        "⚙️ НАСТРОЙКИ\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
+        f"{section_header('⚙️', 'НАСТРОЙКИ')}\n\n"
         "Выберите раздел:"
     )
 
@@ -268,10 +275,9 @@ def build_network_settings_message():
     )
 
     return (
-        "🌐 НАСТРОЙКИ СЕТИ\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
+        f"{section_header('🌐', 'НАСТРОЙКИ СЕТИ')}\n\n"
         "🔐 VLESS → Telegram\n\n"
-        f"Статус уведомлений: {vless_status}\n\n"
+        f"🔔 Уведомления: {vless_status}\n\n"
         f"📡 Порог ping: "
         f"{vless['ping_threshold']} ms\n"
         f"⏱ Интервал проверки: "
@@ -284,11 +290,10 @@ def build_network_settings_message():
 def build_input_message(setting):
     if setting == "ping":
         return (
-            "📡 ПОРОГ PING\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
+            f"{section_header('📡', 'ПОРОГ PING')}\n\n"
             "Введите максимальный допустимый "
             "ping в миллисекундах.\n\n"
-            "Например:\n"
+            "Примеры:\n"
             "500\n"
             "1000\n"
             "1500"
@@ -296,11 +301,10 @@ def build_input_message(setting):
 
     if setting == "interval":
         return (
-            "⏱ ИНТЕРВАЛ ПРОВЕРКИ\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
+            f"{section_header('⏱', 'ИНТЕРВАЛ ПРОВЕРКИ')}\n\n"
             "Введите интервал проверки "
             "в секундах.\n\n"
-            "Например:\n"
+            "Примеры:\n"
             "10\n"
             "30\n"
             "60"
@@ -308,11 +312,10 @@ def build_input_message(setting):
 
     if setting == "failures":
         return (
-            "🔁 КОЛИЧЕСТВО ПЛОХИХ ПРОВЕРОК\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
+            f"{section_header('🔁', 'ПЛОХИЕ ПРОВЕРКИ')}\n\n"
             "Введите количество плохих проверок "
             "подряд до отправки уведомления.\n\n"
-            "Например:\n"
+            "Примеры:\n"
             "1\n"
             "3\n"
             "5"
