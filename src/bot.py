@@ -8,14 +8,14 @@ from telegram.ext import (
     filters,
 )
 
-from callbacks import (
+from src.bot.callbacks import (
     service_restart_callback,
     stats_callback,
     system_callback,
 )
-from collector import collect_loop
+from src.monitoring.collector import collect_loop
 from config import BOT_TOKEN, PROXY_URL
-from handlers import (
+from src.bot.handlers import (
     handle_setting_input,
     health,
     network,
@@ -25,7 +25,7 @@ from handlers import (
     system,
 )
 
-from tasks import post_init
+from src.services.tasks import post_init
 
 
 async def error_handler(update, context):

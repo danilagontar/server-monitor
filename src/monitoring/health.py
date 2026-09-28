@@ -1,7 +1,7 @@
 import psutil
 
-from messages import section_header
-from monitor import check_internet
+from src.bot.messages import section_header
+from src.monitoring.monitor import check_internet
 from services import load_settings
 from utils import (
     current_time,

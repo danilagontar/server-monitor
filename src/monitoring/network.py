@@ -1,6 +1,6 @@
 import psutil
 
-from messages import section_header
+from src.bot.messages import section_header
 from utils import (
     current_time,
     format_bytes,

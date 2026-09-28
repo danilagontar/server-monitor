@@ -1,11 +1,11 @@
 import asyncio
 
 from config import CHAT_ID
-from health import (
+from src.monitoring.health import (
     HealthMonitor,
     format_health_event,
 )
-from services import (
+from src.services.services import (
     ServiceMonitor,
     format_event,
     load_settings,
@@ -61,7 +61,7 @@ async def service_monitor_loop(application):
 
 
 async def post_init(application):
-    from handlers import setup_commands
+    from src.bot.handlers import setup_commands
 
     await setup_commands(application)
 
