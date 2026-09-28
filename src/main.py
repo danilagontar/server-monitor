@@ -15,13 +15,18 @@ from src.bot.callbacks import (
 )
 from src.monitoring.collector import collect_loop
 from src.config import BOT_TOKEN, PROXY_URL
+
+
 from src.bot.handlers import (
     handle_setting_input,
     start,
     stats,
     status,
     system,
+    health,
+    network,
 )
+
 from src.services.tasks import post_init
 
 
