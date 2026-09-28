@@ -27,6 +27,7 @@ from src.bot.keyboards import (
     reboot_confirm_keyboard,
 )
 from src.bot.messages import (
+    build_main_message,
     build_status_message,
     build_docker_message,
     build_services_message,
@@ -60,16 +61,9 @@ async def safe_edit_message(
 
 
 async def show_main_menu(query):
-    text = (
-        "🖥 SERVER MONITOR\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
-        "🟢 Сервер работает\n\n"
-        "Выберите раздел:"
-    )
-
     await safe_edit_message(
         query,
-        text,
+        build_main_message(),
         main_keyboard(),
     )
 

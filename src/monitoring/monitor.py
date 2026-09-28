@@ -21,6 +21,50 @@ def get_uptime():
     return f"{days}d {hours}h {minutes}m"
 
 
+def get_cpu_temperature():
+    try:
+        temperatures = psutil.sensors_temperatures()
+
+        if not temperatures:
+            return None
+
+        preferred = [
+            "coretemp",
+            "k10temp",
+            "cpu_thermal",
+            "cpu-thermal",
+            "acpitz",
+        ]
+
+        for name in preferred:
+            entries = temperatures.get(name)
+
+            if entries:
+                values = [
+                    entry.current
+                    for entry in entries
+                    if entry.current is not None
+                ]
+
+                if values:
+                    return max(values)
+
+        for entries in temperatures.values():
+            values = [
+                entry.current
+                for entry in entries
+                if entry.current is not None
+            ]
+
+            if values:
+                return max(values)
+
+    except Exception:
+        return None
+
+    return None
+
+
 def get_memory_usage():
     memory = psutil.virtual_memory()
 
@@ -74,7 +118,9 @@ def get_processes(limit=10):
             processes.append({
                 "pid": info["pid"],
                 "name": info["name"] or "unknown",
-                "cmdline": " ".join(info["cmdline"] or []),
+                "cmdline": " ".join(
+                    info["cmdline"] or []
+                ),
                 "cpu": cpu,
                 "memory": info["memory_percent"] or 0,
             })
@@ -126,6 +172,7 @@ def get_server_status():
     return {
         "hostname": platform.node(),
         "cpu": processes["total_cpu"],
+        "temperature": get_cpu_temperature(),
         "memory": memory,
         "disk": disk,
         "uptime": get_uptime(),

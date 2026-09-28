@@ -22,6 +22,28 @@ def section_header(icon, title):
         "━━━━━━━━━━━━━━━━━━"
     )
 
+def build_main_message():
+    server = get_server_status()
+
+    cpu = server["cpu"]
+    ram = server["memory"]["percent"]
+    temperature = server["temperature"]
+
+    if temperature is None:
+        temperature_text = "—"
+    else:
+        temperature_text = f"{temperature:.0f}°C"
+
+    return (
+        "🖥 SERVER MONITOR\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "🟢 Сервер работает\n\n"
+        f"⚡ CPU: {cpu:.1f}%   "
+        f"🌡 CPU: {temperature_text}\n"
+        f"🧠 RAM: {ram:.1f}%\n"
+        f"⏱ Uptime: {server['uptime']}\n\n"
+        "Выберите раздел:"
+    )
 
 def build_status_message():
     server = get_server_status()
