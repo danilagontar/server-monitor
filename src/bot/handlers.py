@@ -1,27 +1,28 @@
 from telegram import BotCommand, Update
 from telegram.ext import ContextTypes
-from health import build_health_message
 
-from config import CHAT_ID
-from keyboards import (
-    cancel_input_keyboard,
-    network_settings_keyboard,
-    settings_keyboard,
-    stats_keyboard,
-    status_keyboard,
-    system_keyboard,
+from src.config import CHAT_ID
+from src.bot.keyboards import (
+    build_main_keyboard,
+    build_settings_keyboard,
+    build_network_settings_keyboard,
 )
-from messages import (
-    build_settings_message,
+from src.bot.messages import (
     build_status_message,
+    build_docker_message,
+    build_services_message,
+    build_internet_message,
+    build_processes_cpu_message,
+    build_processes_ram_message,
+    build_monitored_processes_message,
+    build_settings_message,
+    build_network_settings_message,
+    build_input_message,
 )
-
-from health import build_health_message
-from network import build_network_message
-
-
-from services import update_setting
-from stats import build_stats_message
+from src.monitoring.health import build_health_message
+from src.monitoring.network import build_network_message
+from src.services.services import update_setting
+from src.statistics.stats import build_stats_message
 
 async def setup_commands(application):
     commands = [
