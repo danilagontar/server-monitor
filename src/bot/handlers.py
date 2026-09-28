@@ -9,8 +9,7 @@ from src.bot.messages import (
     build_input_message,
     build_main_message,
 )
-from src.services.services import update_setting
-
+from src.services.settings import update_setting
 
 async def setup_commands(application):
     commands = [

@@ -129,7 +129,6 @@ def build_vless_message():
         "━━━━━━━━━━━━━━━━━━\n\n"
         f"Статус: {status}\n\n"
         f"Текущая: {ping_text}\n"
-        f"Качество: {state['quality']}\n"
         f"Порог: {threshold} ms\n\n"
         f"Плохих проверок: "
         f"{bad_count} / {required_failures}\n\n"
