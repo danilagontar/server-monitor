@@ -2,7 +2,10 @@ import csv
 import os
 from datetime import datetime, timedelta
 
-from utils import current_time, format_period
+from src.utils.utils import (
+    current_time,
+    format_period,
+)
 
 
 BASE_DIR = os.path.dirname(

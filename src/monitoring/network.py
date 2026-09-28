@@ -1,11 +1,10 @@
 import psutil
 
 from src.bot.messages import section_header
-from utils import (
-    current_time,
+from src.utils.utils import (
     format_bytes,
+    current_time,
 )
-
 
 def get_network_stats():
     total = psutil.net_io_counters()

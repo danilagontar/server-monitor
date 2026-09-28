@@ -1,6 +1,6 @@
 import requests
 
-from config import BOT_TOKEN, CHAT_ID, PROXY_URL
+from src.config import BOT_TOKEN, CHAT_ID, PROXY_URL
 
 
 def send_shutdown_message():

@@ -1,6 +1,7 @@
 import asyncio
 
-from config import CHAT_ID
+from src.config import CHAT_ID
+
 from src.monitoring.health import (
     HealthMonitor,
     format_health_event,

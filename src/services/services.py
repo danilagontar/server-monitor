@@ -6,7 +6,7 @@ from datetime import datetime
 
 import requests
 
-from config import PROXY_URL
+from src.config import PROXY_URL
 
 
 BASE_DIR = os.path.dirname(

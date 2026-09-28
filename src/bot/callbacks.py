@@ -4,43 +4,34 @@ from telegram import Update
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
-from config import CHAT_ID
-from keyboards import (
-    cancel_input_keyboard,
-    docker_keyboard,
-    internet_keyboard,
-    monitored_processes_keyboard,
-    network_settings_keyboard,
-    process_cpu_keyboard,
-    process_keyboard,
-    process_ram_keyboard,
-    service_restart_keyboard,
-    services_keyboard,
-    settings_keyboard,
-    stats_keyboard,
-    status_keyboard,
-    system_keyboard,
+from src.config import CHAT_ID
+from src.bot.keyboards import (
+    build_stats_keyboard,
+    build_system_keyboard,
+    build_processes_keyboard,
+    build_docker_keyboard,
+    build_services_keyboard,
+    build_settings_keyboard,
+    build_network_settings_keyboard,
 )
-from messages import (
+from src.bot.messages import (
+    build_status_message,
     build_docker_message,
-    build_input_message,
+    build_services_message,
     build_internet_message,
-    build_monitored_processes_message,
-    build_network_settings_message,
     build_processes_cpu_message,
     build_processes_ram_message,
-    build_services_message,
+    build_monitored_processes_message,
     build_settings_message,
-    build_status_message,
+    build_network_settings_message,
 )
-from monitor import get_service_status
-from services import (
-    load_services,
-    load_settings,
+from src.monitoring.monitor import get_service_status
+from src.services.services import (
     restart_service,
+    load_services,
     update_setting,
 )
-from stats import build_stats_message
+from src.statistics.stats import build_stats_message
 
 
 async def safe_edit_message(

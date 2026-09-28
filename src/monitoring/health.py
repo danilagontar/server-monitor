@@ -2,8 +2,8 @@ import psutil
 
 from src.bot.messages import section_header
 from src.monitoring.monitor import check_internet
-from services import load_settings
-from utils import (
+from src.services.services import load_settings
+from src.utils.utils import (
     current_time,
     format_bytes,
     progress_bar,

@@ -1,4 +1,4 @@
-from monitor import (
+from src.monitoring.monitor import (
     check_internet,
     check_telegram_proxy,
     get_docker_status,
@@ -7,8 +7,8 @@ from monitor import (
     get_server_status,
     get_services_status,
 )
-from services import load_settings
-from utils import (
+from src.services.services import load_settings
+from src.utils.utils import (
     current_time,
     format_bytes,
     format_process,

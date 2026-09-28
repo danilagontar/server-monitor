@@ -3,7 +3,7 @@ from telegram import (
     InlineKeyboardMarkup,
 )
 
-from services import load_services
+from src.services.services import load_services
 
 
 def stats_keyboard():

@@ -7,8 +7,8 @@ from datetime import datetime
 import psutil
 import requests
 
-from config import BOT_TOKEN, PROXY_URL
-from services import load_services
+from src.config import BOT_TOKEN, PROXY_URL
+from src.services.services import load_services
 
 
 def get_uptime():
