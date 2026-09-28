@@ -7,6 +7,7 @@ from src.bot.keyboards import (
 )
 from src.bot.messages import (
     build_input_message,
+    build_main_message,
 )
 from src.services.services import update_setting
 
@@ -28,15 +29,8 @@ async def start(
 ):
     context.user_data.clear()
 
-    text = (
-        "🖥 SERVER MONITOR\n"
-        "━━━━━━━━━━━━━━━━━━\n\n"
-        "🟢 Сервер работает\n\n"
-        "Выберите раздел:"
-    )
-
     await update.message.reply_text(
-        text,
+        build_main_message(),
         reply_markup=main_keyboard(),
     )
 
