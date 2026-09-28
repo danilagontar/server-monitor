@@ -16,10 +16,9 @@ from messages import (
     build_status_message,
 )
 
-from health import (
-    build_health_message,
-    build_network_message,
-)
+from health import build_health_message
+from network import build_network_message
+
 
 from services import update_setting
 from stats import build_stats_message
