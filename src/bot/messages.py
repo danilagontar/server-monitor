@@ -7,7 +7,7 @@ from src.monitoring.monitor import (
     get_server_status,
     get_services_status,
 )
-from src.services.services import load_settings
+from src.services.settings import load_settings
 from src.utils.utils import (
     current_time,
     format_bytes,
@@ -21,6 +21,7 @@ def section_header(icon, title):
         f"{icon} {title}\n"
         "━━━━━━━━━━━━━━━━━━"
     )
+
 
 def build_main_message():
     server = get_server_status()
@@ -44,6 +45,7 @@ def build_main_message():
         f"⏱ Uptime: {server['uptime']}\n\n"
         "Выберите раздел:"
     )
+
 
 def build_status_message():
     server = get_server_status()

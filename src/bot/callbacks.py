@@ -28,16 +28,17 @@ from src.bot.keyboards import (
     reboot_confirm_keyboard,
 )
 from src.bot.messages import (
+    build_input_message,
     build_main_message,
     build_status_message,
     build_docker_message,
     build_services_message,
-    build_internet_message,
     build_processes_cpu_message,
     build_processes_ram_message,
     build_settings_message,
     build_network_settings_message,
 )
+
 from src.monitoring.monitor import get_service_status
 from src.monitoring.network import build_network_message
 from src.services.services import (
@@ -46,6 +47,11 @@ from src.services.services import (
 )
 from src.statistics.stats import build_stats_message
 
+from src.monitoring.vless import build_vless_message
+from src.services.settings import (
+    load_settings,
+    update_setting,
+)
 
 async def safe_edit_message(
     query,
@@ -337,6 +343,27 @@ async def callback_handler(
         await show_settings(query)
         return
 
+    if action == "network_notifications_toggle":
+        settings = load_settings()
+
+        current = settings["alerts"]["vless"]
+        update_setting(
+            "alerts",
+            "vless",
+            not current,
+        )
+
+        settings = load_settings()
+
+        await safe_edit_message(
+            query,
+            build_network_settings_message(),
+            network_settings_keyboard(
+                settings["alerts"]["vless"]
+            ),
+        )
+        return
+    
     if action == "settings_network":
         context.user_data["settings_previous"] = (
             "menu_settings"

@@ -9,7 +9,11 @@ from src.bot.messages import (
     build_input_message,
     build_main_message,
 )
-from src.services.settings import update_setting
+from src.services.settings import (
+    load_settings,
+    update_setting,
+)
+
 
 async def setup_commands(application):
     commands = [
@@ -131,7 +135,11 @@ async def handle_setting_input(
         None,
     )
 
+    settings = load_settings()
+
     await update.message.reply_text(
         message,
-        reply_markup=network_settings_keyboard(),
+        reply_markup=network_settings_keyboard(
+            settings["alerts"]["vless"]
+        ),
     )

@@ -90,7 +90,6 @@ def stats_keyboard(active_hours=1):
     ]
 
     buttons = []
-
     row = []
 
     for hours, title in periods:
@@ -354,8 +353,21 @@ def settings_keyboard():
     ])
 
 
-def network_settings_keyboard():
+def network_settings_keyboard(
+    notifications_enabled=True,
+):
+    if notifications_enabled:
+        notification_title = "🔔 Уведомления: 🟢 ВКЛ"
+    else:
+        notification_title = "🔔 Уведомления: 🔴 ВЫКЛ"
+
     return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                notification_title,
+                callback_data="network_notifications_toggle",
+            ),
+        ],
         [
             InlineKeyboardButton(
                 "📡 Порог ping",
